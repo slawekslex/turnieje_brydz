@@ -1,13 +1,13 @@
 import itertools
 from dataclasses import dataclass
-from typing import Dict, Iterator, List, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple
 
 TeamId = int
 DealId = int
 RoundId = int
 TableNumber = int
 
-# Valid declarer positions (bridge)
+# Valid positions (bridge): used for both dealer and declarer
 DECLARERS = ("N", "E", "S", "W")
 # Valid vulnerability (bridge: None, N-S, E-W, Both)
 VULNERABILITIES = ("None", "N-S", "E-W", "Both")
@@ -52,7 +52,7 @@ class Deal:
 
     id: DealId
     number: int
-    declarer: str
+    dealer: str  # N, S, E, or W (who deals the cards for this board)
     vulnerability: str
 
     def __post_init__(self) -> None:
@@ -60,11 +60,11 @@ class Deal:
             raise TypeError("Deal.number must be an integer")
         if self.number < 1:
             raise ValueError("Deal.number must be >= 1")
-        if not isinstance(self.declarer, str):
-            raise TypeError("Deal.declarer must be a string")
-        if self.declarer not in DECLARERS:
+        if not isinstance(self.dealer, str):
+            raise TypeError("Deal.dealer must be a string")
+        if self.dealer not in DECLARERS:
             raise ValueError(
-                f"Deal.declarer must be one of {DECLARERS}, got {self.declarer!r}"
+                f"Deal.dealer must be one of {DECLARERS}, got {self.dealer!r}"
             )
         if not isinstance(self.vulnerability, str):
             raise TypeError("Deal.vulnerability must be a string")
@@ -83,7 +83,7 @@ def deal_from_board_number(board_id: int) -> Deal:
     return Deal(
         id=board_id,
         number=board_id,
-        declarer=DECLARERS[(board_id - 1) % 4],
+        dealer=DECLARERS[(board_id - 1) % 4],
         vulnerability=VULNERABILITIES[(board_id - 1) % 4],
     )
 
@@ -127,6 +127,10 @@ class Result:
     deal_id: DealId
     ns_score: int
     ew_score: int
+    contract: str = ""
+    declarer: str = ""  # N, S, E, or W (who declared the contract)
+    opening_lead: str = ""
+    tricks_taken: Optional[int] = None
 
 
 @dataclass

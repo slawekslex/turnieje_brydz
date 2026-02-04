@@ -77,73 +77,73 @@ class TeamValidationTests(unittest.TestCase):
 
 class DealValidationTests(unittest.TestCase):
     def test_valid_deal(self) -> None:
-        d = Deal(id=1, number=1, declarer="N", vulnerability="None")
+        d = Deal(id=1, number=1, dealer="N", vulnerability="None")
         self.assertEqual(d.number, 1)
-        self.assertEqual(d.declarer, "N")
+        self.assertEqual(d.dealer, "N")
         self.assertEqual(d.vulnerability, "None")
 
     def test_deal_number_zero_raises(self) -> None:
         with self.assertRaises(ValueError) as ctx:
-            Deal(id=0, number=0, declarer="N", vulnerability="None")
+            Deal(id=0, number=0, dealer="N", vulnerability="None")
         self.assertIn(">= 1", str(ctx.exception))
 
     def test_deal_number_negative_raises(self) -> None:
         with self.assertRaises(ValueError) as ctx:
-            Deal(id=-1, number=-1, declarer="N", vulnerability="None")
+            Deal(id=-1, number=-1, dealer="N", vulnerability="None")
         self.assertIn(">= 1", str(ctx.exception))
 
     def test_deal_number_non_integer_raises(self) -> None:
         with self.assertRaises(TypeError) as ctx:
-            Deal(id=1, number=1.5, declarer="N", vulnerability="None")  # type: ignore[arg-type]
+            Deal(id=1, number=1.5, dealer="N", vulnerability="None")  # type: ignore[arg-type]
         self.assertIn("integer", str(ctx.exception))
 
-    def test_deal_invalid_declarer_raises(self) -> None:
+    def test_deal_invalid_dealer_raises(self) -> None:
         with self.assertRaises(ValueError) as ctx:
-            Deal(id=1, number=1, declarer="X", vulnerability="None")
-        self.assertIn("declarer", str(ctx.exception).lower())
+            Deal(id=1, number=1, dealer="X", vulnerability="None")
+        self.assertIn("dealer", str(ctx.exception).lower())
         self.assertIn("N", str(ctx.exception))
 
-    def test_deal_valid_declarers_accepted(self) -> None:
-        for declarer in DECLARERS:
-            with self.subTest(declarer=declarer):
-                d = Deal(id=1, number=1, declarer=declarer, vulnerability="None")
-                self.assertEqual(d.declarer, declarer)
+    def test_deal_valid_dealers_accepted(self) -> None:
+        for dealer in DECLARERS:
+            with self.subTest(dealer=dealer):
+                d = Deal(id=1, number=1, dealer=dealer, vulnerability="None")
+                self.assertEqual(d.dealer, dealer)
 
     def test_deal_invalid_vulnerability_raises(self) -> None:
         with self.assertRaises(ValueError) as ctx:
-            Deal(id=1, number=1, declarer="N", vulnerability="All")
+            Deal(id=1, number=1, dealer="N", vulnerability="All")
         self.assertIn("vulnerability", str(ctx.exception).lower())
 
     def test_deal_valid_vulnerabilities_accepted(self) -> None:
         for vul in VULNERABILITIES:
             with self.subTest(vulnerability=vul):
-                d = Deal(id=1, number=1, declarer="N", vulnerability=vul)
+                d = Deal(id=1, number=1, dealer="N", vulnerability=vul)
                 self.assertEqual(d.vulnerability, vul)
 
-    def test_deal_declarer_non_string_raises(self) -> None:
+    def test_deal_dealer_non_string_raises(self) -> None:
         with self.assertRaises(TypeError) as ctx:
-            Deal(id=1, number=1, declarer=1, vulnerability="None")  # type: ignore[arg-type]
+            Deal(id=1, number=1, dealer=1, vulnerability="None")  # type: ignore[arg-type]
         self.assertIn("string", str(ctx.exception))
 
     def test_deal_vulnerability_non_string_raises(self) -> None:
         with self.assertRaises(TypeError) as ctx:
-            Deal(id=1, number=1, declarer="N", vulnerability=None)  # type: ignore[arg-type]
+            Deal(id=1, number=1, dealer="N", vulnerability=None)  # type: ignore[arg-type]
         self.assertIn("string", str(ctx.exception))
 
 
 class DealFromBoardNumberTests(unittest.TestCase):
-    def test_deal_from_board_number_cycles_declarer_and_vulnerability(self) -> None:
+    def test_deal_from_board_number_cycles_dealer_and_vulnerability(self) -> None:
         d1 = deal_from_board_number(1)
         self.assertEqual(d1.number, 1)
-        self.assertEqual(d1.declarer, "N")
+        self.assertEqual(d1.dealer, "N")
         self.assertEqual(d1.vulnerability, "None")
 
         d2 = deal_from_board_number(2)
-        self.assertEqual(d2.declarer, "E")
+        self.assertEqual(d2.dealer, "E")
         self.assertEqual(d2.vulnerability, "N-S")
 
         d5 = deal_from_board_number(5)
-        self.assertEqual(d5.declarer, "N")
+        self.assertEqual(d5.dealer, "N")
         self.assertEqual(d5.vulnerability, "None")
 
     def test_deal_from_board_number_zero_raises(self) -> None:
@@ -161,7 +161,7 @@ class Standard16BoardDealSequenceTests(unittest.TestCase):
         for i in range(16):
             d = next(gen)
             self.assertEqual(d.number, i + 1)
-            self.assertEqual(d.declarer, DECLARERS[i % 4])
+            self.assertEqual(d.dealer, DECLARERS[i % 4])
             self.assertEqual(d.vulnerability, VULNERABILITIES[i % 4])
 
     def test_start_id_zero_raises(self) -> None:
@@ -174,7 +174,7 @@ class Standard16BoardDealSequenceTests(unittest.TestCase):
         gen = standard_16_board_deal_sequence(start_id=17)
         d = next(gen)
         self.assertEqual(d.number, 17)
-        self.assertEqual(d.declarer, "N")
+        self.assertEqual(d.dealer, "N")
         self.assertEqual(d.vulnerability, "None")
 
 

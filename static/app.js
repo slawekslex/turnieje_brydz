@@ -16,6 +16,9 @@
   const teamsSectionTitle = document.getElementById('teams-section-title');
   const teamsSectionToggle = document.getElementById('teams-section-toggle');
   const teamsSectionBody = document.getElementById('teams-section-body');
+  const cyclesContainer = document.getElementById('cycles-container');
+  const btnAddCycle = document.getElementById('btn-add-cycle');
+  const roundsTotalsValue = document.getElementById('rounds-totals-value');
 
   function showList() {
     addSection.classList.add('hidden');
@@ -84,9 +87,11 @@
     block.querySelector('.btn-remove-team').addEventListener('click', function () {
       block.remove();
       updateTeamsSectionTitle();
+      updateRoundsTotals();
     });
     teamsContainer.appendChild(block);
     updateTeamsSectionTitle();
+    updateRoundsTotals();
   }
 
   function getTeamCount() {
@@ -125,6 +130,60 @@
     return teams;
   }
 
+  function collectCycles() {
+    const rows = cyclesContainer.querySelectorAll('.cycle-row');
+    const cycles = [];
+    rows.forEach(function (row) {
+      var input = row.querySelector('.cycle-deals-input');
+      var n = parseInt(input.value, 10);
+      cycles.push({ deals_per_round: isNaN(n) || n < 0 ? 0 : n });
+    });
+    return cycles;
+  }
+
+  function addCycleRow(dealsPerRound) {
+    var row = document.createElement('div');
+    row.className = 'cycle-row';
+    var idx = cyclesContainer.querySelectorAll('.cycle-row').length + 1;
+    row.innerHTML =
+      '<label>Cykl ' + idx + ':</label>' +
+      '<input type="number" class="cycle-deals-input" min="0" value="' + (dealsPerRound != null ? dealsPerRound : 2) + '" placeholder="0">' +
+      '<span class="cycle-deals-suffix">rozdania na rundę</span>' +
+      '<button type="button" class="btn-remove-cycle">Usuń</button>';
+    row.querySelector('.cycle-deals-input').addEventListener('input', updateRoundsTotals);
+    row.querySelector('.cycle-deals-input').addEventListener('change', updateRoundsTotals);
+    row.querySelector('.btn-remove-cycle').addEventListener('click', function () {
+      row.remove();
+      updateCycleLabels();
+      updateRoundsTotals();
+    });
+    cyclesContainer.appendChild(row);
+    updateRoundsTotals();
+  }
+
+  function updateCycleLabels() {
+    var rows = cyclesContainer.querySelectorAll('.cycle-row');
+    rows.forEach(function (row, i) {
+      row.querySelector('label').textContent = 'Cykl ' + (i + 1) + ':';
+    });
+  }
+
+  function updateRoundsTotals() {
+    var numTeams = getTeamCount();
+    var cycles = collectCycles();
+    if (numTeams < 2 || numTeams % 2 !== 0) {
+      roundsTotalsValue.textContent = '— rund, — rozdania (dodaj parzystą liczbę drużyn)';
+      return;
+    }
+    var roundsPerCycle = numTeams - 1;
+    var totalRounds = cycles.length * roundsPerCycle;
+    var totalDeals = 0;
+    cycles.forEach(function (c) {
+      totalDeals += roundsPerCycle * (c.deals_per_round || 0);
+    });
+    roundsTotalsValue.textContent = totalRounds + ' rund, ' + totalDeals + ' rozdania';
+  }
+
   teamsSectionToggle.textContent = '\u25BC';
 
   teamsSectionHeader.addEventListener('click', function () {
@@ -135,12 +194,16 @@
 
   btnAdd.addEventListener('click', function () {
     teamsContainer.innerHTML = '';
+    cyclesContainer.innerHTML = '';
     addTeamBlock({});
     addTeamBlock({});
+    addCycleRow(2);
+    updateCycleLabels();
     form.reset();
     document.getElementById('tournament-date').value = new Date().toISOString().slice(0, 10);
     setTeamsSectionCollapsed(false);
     updateTeamsSectionTitle();
+    updateRoundsTotals();
     showAdd();
   });
 
@@ -148,6 +211,11 @@
 
   btnAddTeam.addEventListener('click', function () {
     addTeamBlock({});
+  });
+
+  btnAddCycle.addEventListener('click', function () {
+    addCycleRow(2);
+    updateCycleLabels();
   });
 
   btnAutoTeams.addEventListener('click', function (e) {
@@ -183,11 +251,12 @@
     const name = (document.getElementById('tournament-name').value || '').trim();
     const date = document.getElementById('tournament-date').value;
     const teams = collectTeams();
+    const cycles = collectCycles();
 
     fetch('/api/tournaments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name, date: date, teams: teams })
+      body: JSON.stringify({ name: name, date: date, teams: teams, cycles: cycles.length ? cycles : [{ deals_per_round: 2 }] })
     })
       .then(function (res) { return res.json().then(function (data) { return { res: res, data: data }; }); })
       .then(function (result) {
@@ -202,9 +271,8 @@
         formSuccess.classList.remove('hidden');
         loadTournaments();
         setTimeout(function () {
-          showList();
-          formSuccess.classList.add('hidden');
-        }, 1500);
+          window.location.href = '/tournament/' + encodeURIComponent(result.data.id) + '/schedule';
+        }, 800);
       })
       .catch(function () {
         formErrors.textContent = 'Błąd połączenia. Spróbuj ponownie.';

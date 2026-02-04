@@ -15,6 +15,10 @@ body {
   margin: 0 auto;
 }
 
+.schedule-page .container {
+  max-width: 1000px;
+}
+
 header {
   display: flex;
   align-items: center;
@@ -397,4 +401,384 @@ h2 {
   border-radius: 6px;
   color: #166534;
   font-size: 0.9rem;
+}
+
+/* Tournament schedule view */
+.schedule-card {
+  max-width: 100%;
+}
+
+.schedule-meta {
+  margin-bottom: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.rounds-scroll {
+  overflow-x: auto;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rounds-scroll-inner {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  min-width: min-content;
+}
+
+.round-pill {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: #374151;
+}
+
+.round-pill:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.round-pill.selected {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.round-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  padding: 0.5rem 0 0.75rem;
+  margin-left: -0.25rem;
+  margin-right: -0.25rem;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  border-bottom: 1px solid #e5e7eb;
+  margin-top: -0.25rem;
+}
+
+.round-detail-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.round-detail-caption {
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-weight: normal;
+}
+
+.btn-save-round {
+  padding: 0.6rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.save-round-status {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.save-round-status--success {
+  color: #16a34a;
+}
+
+.save-round-status--partial {
+  color: #ca8a04;
+}
+
+.save-round-status--error {
+  color: #dc2626;
+}
+
+#tables-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.table-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fafbfc;
+}
+
+.table-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #e5e7eb;
+  font-size: 0.9rem;
+}
+
+.table-card-title {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.table-card-teams {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.85rem;
+}
+
+.table-card-with-deals {
+  margin-bottom: 1rem;
+}
+
+.table-card-with-deals .table-card {
+  margin-bottom: 0;
+}
+
+.table-card-with-deals.collapsed .table-deals {
+  display: none;
+}
+
+.table-card-with-deals .table-card {
+  cursor: pointer;
+  user-select: none;
+}
+
+.table-card-with-deals .table-card:hover {
+  background: #f4f5f6;
+}
+
+
+.table-card-check {
+  display: none;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.table-card-with-deals.collapsed.table-card-check-ok .table-card-check {
+  display: inline-flex;
+}
+
+.table-card-chevron {
+  font-size: 0.8rem;
+  color: #6b7280;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.table-card-with-deals:not(.collapsed) .table-card-chevron {
+  transform: rotate(90deg);
+}
+
+.table-deals {
+  padding: 0.75rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+}
+
+.table-deals-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  color: #374151;
+}
+
+/* Deal rows: grid layout so columns align */
+.deal-row {
+  display: grid;
+  grid-template-columns: 4.5rem 4.5rem 3.5rem 4rem 3.5rem 6.5rem;
+  gap: 0.5rem 0.75rem;
+  align-items: start;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.deal-row:last-child {
+  border-bottom: none;
+}
+
+.deal-row-header {
+  display: grid;
+  grid-template-columns: 4.5rem 4.5rem 3.5rem 4rem 3.5rem 6.5rem;
+  gap: 0.5rem 0.75rem;
+  padding: 0.35rem 0 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 0.25rem;
+}
+
+.deal-row-header .deal-header-cell {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.deal-row--empty {
+  background: transparent;
+}
+
+.deal-row--valid {
+  background: #dcfce7;
+  border-radius: 4px;
+  margin: 0 -0.2rem;
+  padding: 0.4rem 0.2rem;
+}
+
+.deal-row--invalid {
+  background: #fee2e2;
+  border-radius: 4px;
+  margin: 0 -0.2rem;
+  padding: 0.4rem 0.2rem;
+}
+
+.deal-info {
+  font-size: 0.8rem;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.deal-board {
+  font-weight: 600;
+  display: block;
+  color: #374151;
+}
+
+.deal-dealer {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.deal-meta {
+  color: #6b7280;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.vul-label {
+  display: inline-flex;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 3px;
+  overflow: hidden;
+  line-height: 1.2;
+}
+
+.vul-seg {
+  padding: 0.12rem 0.35rem;
+}
+
+.vul-seg.vul-nv {
+  background: #22c55e;
+  color: #fff;
+}
+
+.vul-seg.vul-vul {
+  background: #dc2626;
+  color: #fff;
+}
+
+.deal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.deal-field label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.deal-field .deal-input {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.deal-field .deal-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.deal-field .deal-contract {
+  min-width: 3.5rem;
+}
+
+.deal-field .deal-declarer {
+  min-width: 2.5rem;
+}
+
+.deal-field .deal-tricks {
+  min-width: 2.5rem;
+}
+
+.deal-score-wrap {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #374151;
+  min-width: 0;
+}
+
+.deal-score {
+  min-height: 1.5em;
+  white-space: nowrap;
+}
+
+.deal-contract-error,
+.deal-declarer-error,
+.deal-lead-error,
+.deal-tricks-error {
+  font-size: 0.75rem;
+  color: #b91c1c;
+  line-height: 1.2;
+}
+
+.btn-save-deal {
+  flex-shrink: 0;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
 }

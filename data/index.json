@@ -9,6 +9,12 @@
     "id": "4b06e80d-11aa-4e70-a903-feb6bb0fa7c6",
     "name": "Test 1",
     "date": "2026-02-04",
+    "archived": true
+  },
+  {
+    "id": "a01571a4-d945-41d8-adc9-bfe17bcf3055",
+    "name": "test 6 druzyn dwa cykle po 4",
+    "date": "2026-02-04",
     "archived": false
   }
 ]

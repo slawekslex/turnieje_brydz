@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Harmonogram – Turnieje brydżowe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="app-body schedule-page">
+  <div class="container">
+    <header>
+      <h1 id="tournament-title">Harmonogram</h1>
+      <div class="header-actions">
+        <a href="#" id="link-edit" class="btn btn-secondary btn-sm">Edycja</a>
+        <a href="{{ url_for('api.index') }}" class="btn btn-secondary btn-sm">← Lista turniejów</a>
+      </div>
+    </header>
+
+    <section class="card schedule-card">
+      <p id="load-error" class="errors hidden"></p>
+      <div id="schedule-content" class="hidden">
+        <p class="schedule-meta muted" id="schedule-meta"></p>
+
+        <div class="rounds-scroll" id="rounds-scroll">
+          <div class="rounds-scroll-inner" id="rounds-list"></div>
+        </div>
+
+        <div class="round-detail" id="round-detail">
+          <div class="round-detail-header">
+            <h2 class="round-detail-title" id="round-detail-title">Runda 1</h2>
+            <span class="round-detail-caption" id="round-detail-caption"></span>
+            <button type="button" class="btn btn-primary btn-save-round" id="btn-save-round">Zapisz rundę</button>
+            <span id="save-round-status" class="save-round-status" aria-live="polite"></span>
+          </div>
+          <div id="tables-list"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    window.TOUR_ID = "{{ tour_id | e }}";
+  </script>
+  <script src="{{ url_for('static', filename='tournament_schedule.js') }}"></script>
+</body>
+</html>

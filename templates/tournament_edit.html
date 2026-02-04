@@ -4,13 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Edycja turnieju – Turnieje brydżowe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body class="app-body">
   <div class="container">
     <header>
       <h1>Turnieje brydżowe</h1>
-      <a href="{{ url_for('api.index') }}" class="btn btn-secondary">← Lista turniejów</a>
+      <div class="header-actions">
+        <a href="{{ url_for('api.tournament_schedule_page', tour_id=tour_id) }}" class="btn btn-secondary btn-sm">Zobacz harmonogram</a>
+        <a href="{{ url_for('api.index') }}" class="btn btn-secondary">← Lista turniejów</a>
+      </div>
     </header>
 
     <section class="card">

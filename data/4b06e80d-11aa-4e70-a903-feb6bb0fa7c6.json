@@ -71,7 +71,7 @@
         {
           "table_number": 1,
           "ns_team_id": 5,
-          "ew_team_id": 6
+          "ew_team_id": 1
         },
         {
           "table_number": 2,
@@ -80,8 +80,8 @@
         },
         {
           "table_number": 3,
-          "ns_team_id": 1,
-          "ew_team_id": 2
+          "ns_team_id": 2,
+          "ew_team_id": 6
         }
       ],
       "deals": [
@@ -96,6 +96,12 @@
           "number": 2,
           "declarer": "E",
           "vulnerability": "N-S"
+        },
+        {
+          "id": 3,
+          "number": 3,
+          "declarer": "S",
+          "vulnerability": "E-W"
         }
       ],
       "results_by_table_deal": {}
@@ -106,57 +112,27 @@
       "tables": [
         {
           "table_number": 1,
-          "ns_team_id": 6,
-          "ew_team_id": 4
+          "ns_team_id": 5,
+          "ew_team_id": 3
         },
         {
           "table_number": 2,
-          "ns_team_id": 2,
-          "ew_team_id": 5
+          "ns_team_id": 1,
+          "ew_team_id": 2
         },
         {
           "table_number": 3,
-          "ns_team_id": 3,
-          "ew_team_id": 1
+          "ns_team_id": 6,
+          "ew_team_id": 4
         }
       ],
       "deals": [
-        {
-          "id": 3,
-          "number": 3,
-          "declarer": "S",
-          "vulnerability": "E-W"
-        },
         {
           "id": 4,
           "number": 4,
           "declarer": "W",
           "vulnerability": "Both"
-        }
-      ],
-      "results_by_table_deal": {}
-    },
-    {
-      "id": 3,
-      "round_number": 3,
-      "tables": [
-        {
-          "table_number": 1,
-          "ns_team_id": 2,
-          "ew_team_id": 6
         },
-        {
-          "table_number": 2,
-          "ns_team_id": 4,
-          "ew_team_id": 1
-        },
-        {
-          "table_number": 3,
-          "ns_team_id": 3,
-          "ew_team_id": 5
-        }
-      ],
-      "deals": [
         {
           "id": 5,
           "number": 5,
@@ -173,22 +149,22 @@
       "results_by_table_deal": {}
     },
     {
-      "id": 4,
-      "round_number": 4,
+      "id": 3,
+      "round_number": 3,
       "tables": [
         {
           "table_number": 1,
-          "ns_team_id": 6,
-          "ew_team_id": 1
+          "ns_team_id": 2,
+          "ew_team_id": 5
         },
         {
           "table_number": 2,
-          "ns_team_id": 3,
-          "ew_team_id": 2
+          "ns_team_id": 6,
+          "ew_team_id": 3
         },
         {
           "table_number": 3,
-          "ns_team_id": 5,
+          "ns_team_id": 1,
           "ew_team_id": 4
         }
       ],
@@ -204,6 +180,54 @@
           "number": 8,
           "declarer": "W",
           "vulnerability": "Both"
+        },
+        {
+          "id": 9,
+          "number": 9,
+          "declarer": "N",
+          "vulnerability": "None"
+        }
+      ],
+      "results_by_table_deal": {}
+    },
+    {
+      "id": 4,
+      "round_number": 4,
+      "tables": [
+        {
+          "table_number": 1,
+          "ns_team_id": 5,
+          "ew_team_id": 6
+        },
+        {
+          "table_number": 2,
+          "ns_team_id": 4,
+          "ew_team_id": 2
+        },
+        {
+          "table_number": 3,
+          "ns_team_id": 1,
+          "ew_team_id": 3
+        }
+      ],
+      "deals": [
+        {
+          "id": 10,
+          "number": 10,
+          "declarer": "E",
+          "vulnerability": "N-S"
+        },
+        {
+          "id": 11,
+          "number": 11,
+          "declarer": "S",
+          "vulnerability": "E-W"
+        },
+        {
+          "id": 12,
+          "number": 12,
+          "declarer": "W",
+          "vulnerability": "Both"
         }
       ],
       "results_by_table_deal": {}
@@ -214,30 +238,246 @@
       "tables": [
         {
           "table_number": 1,
-          "ns_team_id": 3,
-          "ew_team_id": 6
-        },
-        {
-          "table_number": 2,
-          "ns_team_id": 1,
+          "ns_team_id": 4,
           "ew_team_id": 5
         },
         {
+          "table_number": 2,
+          "ns_team_id": 6,
+          "ew_team_id": 1
+        },
+        {
           "table_number": 3,
-          "ns_team_id": 4,
+          "ns_team_id": 3,
           "ew_team_id": 2
         }
       ],
       "deals": [
         {
-          "id": 9,
-          "number": 9,
+          "id": 13,
+          "number": 13,
           "declarer": "N",
           "vulnerability": "None"
         },
         {
-          "id": 10,
-          "number": 10,
+          "id": 14,
+          "number": 14,
+          "declarer": "E",
+          "vulnerability": "N-S"
+        },
+        {
+          "id": 15,
+          "number": 15,
+          "declarer": "S",
+          "vulnerability": "E-W"
+        }
+      ],
+      "results_by_table_deal": {}
+    },
+    {
+      "id": 6,
+      "round_number": 6,
+      "tables": [
+        {
+          "table_number": 1,
+          "ns_team_id": 5,
+          "ew_team_id": 2
+        },
+        {
+          "table_number": 2,
+          "ns_team_id": 4,
+          "ew_team_id": 3
+        },
+        {
+          "table_number": 3,
+          "ns_team_id": 1,
+          "ew_team_id": 6
+        }
+      ],
+      "deals": [
+        {
+          "id": 16,
+          "number": 16,
+          "declarer": "W",
+          "vulnerability": "Both"
+        },
+        {
+          "id": 17,
+          "number": 17,
+          "declarer": "N",
+          "vulnerability": "None"
+        },
+        {
+          "id": 18,
+          "number": 18,
+          "declarer": "E",
+          "vulnerability": "N-S"
+        }
+      ],
+      "results_by_table_deal": {}
+    },
+    {
+      "id": 7,
+      "round_number": 7,
+      "tables": [
+        {
+          "table_number": 1,
+          "ns_team_id": 2,
+          "ew_team_id": 4
+        },
+        {
+          "table_number": 2,
+          "ns_team_id": 5,
+          "ew_team_id": 6
+        },
+        {
+          "table_number": 3,
+          "ns_team_id": 3,
+          "ew_team_id": 1
+        }
+      ],
+      "deals": [
+        {
+          "id": 19,
+          "number": 19,
+          "declarer": "S",
+          "vulnerability": "E-W"
+        },
+        {
+          "id": 20,
+          "number": 20,
+          "declarer": "W",
+          "vulnerability": "Both"
+        },
+        {
+          "id": 21,
+          "number": 21,
+          "declarer": "N",
+          "vulnerability": "None"
+        }
+      ],
+      "results_by_table_deal": {}
+    },
+    {
+      "id": 8,
+      "round_number": 8,
+      "tables": [
+        {
+          "table_number": 1,
+          "ns_team_id": 2,
+          "ew_team_id": 6
+        },
+        {
+          "table_number": 2,
+          "ns_team_id": 4,
+          "ew_team_id": 1
+        },
+        {
+          "table_number": 3,
+          "ns_team_id": 3,
+          "ew_team_id": 5
+        }
+      ],
+      "deals": [
+        {
+          "id": 22,
+          "number": 22,
+          "declarer": "E",
+          "vulnerability": "N-S"
+        },
+        {
+          "id": 23,
+          "number": 23,
+          "declarer": "S",
+          "vulnerability": "E-W"
+        },
+        {
+          "id": 24,
+          "number": 24,
+          "declarer": "W",
+          "vulnerability": "Both"
+        }
+      ],
+      "results_by_table_deal": {}
+    },
+    {
+      "id": 9,
+      "round_number": 9,
+      "tables": [
+        {
+          "table_number": 1,
+          "ns_team_id": 1,
+          "ew_team_id": 2
+        },
+        {
+          "table_number": 2,
+          "ns_team_id": 6,
+          "ew_team_id": 3
+        },
+        {
+          "table_number": 3,
+          "ns_team_id": 4,
+          "ew_team_id": 5
+        }
+      ],
+      "deals": [
+        {
+          "id": 25,
+          "number": 25,
+          "declarer": "N",
+          "vulnerability": "None"
+        },
+        {
+          "id": 26,
+          "number": 26,
+          "declarer": "E",
+          "vulnerability": "N-S"
+        },
+        {
+          "id": 27,
+          "number": 27,
+          "declarer": "S",
+          "vulnerability": "E-W"
+        }
+      ],
+      "results_by_table_deal": {}
+    },
+    {
+      "id": 10,
+      "round_number": 10,
+      "tables": [
+        {
+          "table_number": 1,
+          "ns_team_id": 2,
+          "ew_team_id": 3
+        },
+        {
+          "table_number": 2,
+          "ns_team_id": 5,
+          "ew_team_id": 1
+        },
+        {
+          "table_number": 3,
+          "ns_team_id": 6,
+          "ew_team_id": 4
+        }
+      ],
+      "deals": [
+        {
+          "id": 28,
+          "number": 28,
+          "declarer": "W",
+          "vulnerability": "Both"
+        },
+        {
+          "id": 29,
+          "number": 29,
+          "declarer": "N",
+          "vulnerability": "None"
+        },
+        {
+          "id": 30,
+          "number": 30,
           "declarer": "E",
           "vulnerability": "N-S"
         }
@@ -247,7 +487,10 @@
   ],
   "cycles": [
     {
-      "deals_per_round": 2
+      "deals_per_round": 3
+    },
+    {
+      "deals_per_round": 3
     }
   ]
 }

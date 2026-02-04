@@ -4,9 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Turnieje brydżowe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body class="app-body">
   <div class="container">
     <header>
       <h1>Turnieje brydżowe</h1>
@@ -47,6 +50,17 @@
             </div>
             <p class="hint">Liczba drużyn musi być parzysta (min. 2). Każda drużyna: nazwa + dwóch członków.</p>
             <div id="teams-container"></div>
+          </div>
+        </div>
+
+        <div class="form-group rounds-structure-panel" id="rounds-structure-panel">
+          <h3 class="rounds-structure-title">Struktura rund</h3>
+          <p class="hint">Każdy cykl to jeden round-robin (każdy z każdym). Określ liczbę rozdania na rundę w cyklu.</p>
+          <div id="cycles-container"></div>
+          <button type="button" id="btn-add-cycle" class="btn btn-secondary btn-sm">+ Dodaj cykl round-robin</button>
+          <div class="rounds-totals" id="rounds-totals">
+            <span class="rounds-totals-label">Razem:</span>
+            <span class="rounds-totals-value" id="rounds-totals-value">— rund, — rozdania</span>
           </div>
         </div>
 

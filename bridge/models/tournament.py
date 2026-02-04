@@ -69,16 +69,18 @@ def _deal_to_dict(deal: Deal) -> Dict[str, Any]:
     return {
         "id": deal.id,
         "number": deal.number,
-        "declarer": deal.declarer,
+        "dealer": deal.dealer,
         "vulnerability": deal.vulnerability,
     }
 
 
 def _deal_from_dict(d: Dict[str, Any]) -> Deal:
+    # Backward compatibility: accept legacy "declarer" key for dealer
+    dealer = d.get("dealer") or d.get("declarer") or "N"
     return Deal(
         id=d["id"],
         number=d["number"],
-        declarer=d["declarer"],
+        dealer=dealer,
         vulnerability=d["vulnerability"],
     )
 
@@ -100,13 +102,19 @@ def _table_assignment_from_dict(d: Dict[str, Any]) -> TableAssignment:
 
 
 def _result_to_dict(r: Result) -> Dict[str, Any]:
-    return {
+    out = {
         "round_id": r.round_id,
         "table_number": r.table_number,
         "deal_id": r.deal_id,
         "ns_score": r.ns_score,
         "ew_score": r.ew_score,
+        "contract": r.contract or "",
+        "declarer": r.declarer or "",
+        "opening_lead": r.opening_lead or "",
     }
+    if r.tricks_taken is not None:
+        out["tricks_taken"] = r.tricks_taken
+    return out
 
 
 def _result_from_dict(d: Dict[str, Any]) -> Result:
@@ -114,8 +122,12 @@ def _result_from_dict(d: Dict[str, Any]) -> Result:
         round_id=d["round_id"],
         table_number=d["table_number"],
         deal_id=d["deal_id"],
-        ns_score=d["ns_score"],
-        ew_score=d["ew_score"],
+        ns_score=d.get("ns_score", 0),
+        ew_score=d.get("ew_score", 0),
+        contract=d.get("contract", ""),
+        declarer=d.get("declarer", ""),
+        opening_lead=d.get("opening_lead", ""),
+        tricks_taken=d.get("tricks_taken"),
     )
 
 
