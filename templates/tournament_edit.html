@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edycja turnieju – Turnieje brydżowe</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Turnieje brydżowe</h1>
+      <a href="{{ url_for('api.index') }}" class="btn btn-secondary">← Lista turniejów</a>
+    </header>
+
+    <section class="card">
+      <h2>Edycja turnieju</h2>
+      <p id="load-error" class="errors hidden"></p>
+      <form id="form-tournament" class="hidden">
+        <div class="form-row form-row-name-date">
+          <div class="form-group form-group-flex">
+            <label for="tournament-name">Nazwa turnieju</label>
+            <input type="text" id="tournament-name" name="name" required placeholder="np. Puchar jesieni 2025">
+          </div>
+          <div class="form-group form-group-flex">
+            <label for="tournament-date">Data</label>
+            <input type="date" id="tournament-date" name="date" required>
+          </div>
+        </div>
+
+        <div class="form-group teams-section" id="teams-section">
+          <div class="teams-section-header" id="teams-section-header">
+            <span class="teams-section-title" id="teams-section-title">Drużyny</span>
+            <span class="teams-section-toggle" id="teams-section-toggle" aria-hidden="true"></span>
+          </div>
+          <div class="teams-section-body" id="teams-section-body">
+            <div class="teams-header">
+              <button type="button" id="btn-add-team" class="btn btn-secondary btn-sm">+ Drużyna</button>
+              <button type="button" id="btn-auto-teams" class="btn btn-secondary btn-sm">Auto</button>
+            </div>
+            <p class="hint">Liczba drużyn musi być parzysta (min. 2). Każda drużyna: nazwa + dwóch członków.</p>
+            <div id="teams-container"></div>
+          </div>
+        </div>
+
+        <div class="form-group rounds-structure-panel" id="rounds-structure-panel">
+          <h3 class="rounds-structure-title">Struktura rund</h3>
+          <p class="hint">Każdy cykl to jeden round-robin (każdy z każdym). Określ liczbę rozdania na rundę w cyklu.</p>
+          <div id="cycles-container"></div>
+          <button type="button" id="btn-add-cycle" class="btn btn-secondary btn-sm">+ Dodaj cykl round-robin</button>
+          <div class="rounds-totals" id="rounds-totals">
+            <span class="rounds-totals-label">Razem:</span>
+            <span class="rounds-totals-value" id="rounds-totals-value">— rund, — rozdania</span>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Zapisz</button>
+          <a href="{{ url_for('api.index') }}" class="btn btn-secondary">Anuluj</a>
+        </div>
+      </form>
+      <div id="form-errors" class="errors hidden"></div>
+      <div id="form-success" class="success hidden"></div>
+    </section>
+  </div>
+
+  <script>
+    window.TOUR_ID = "{{ tour_id | e }}";
+  </script>
+  <script src="{{ url_for('static', filename='tournament_edit.js') }}"></script>
+</body>
+</html>
