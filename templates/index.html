@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Turnieje brydżowe</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Turnieje brydżowe</h1>
+      <button type="button" id="btn-add" class="btn btn-primary">Dodaj turniej</button>
+    </header>
+
+    <section id="tournament-list" class="card">
+      <h2>Lista turniejów</h2>
+      <div id="list-content">
+        <p id="list-empty" class="muted">Brak turniejów. Kliknij „Dodaj turniej”, aby utworzyć pierwszy.</p>
+        <ul id="tournaments-ul"></ul>
+      </div>
+    </section>
+
+    <section id="add-tournament" class="card hidden">
+      <h2>Nowy turniej</h2>
+      <form id="form-tournament">
+        <div class="form-group">
+          <label for="tournament-name">Nazwa turnieju</label>
+          <input type="text" id="tournament-name" name="name" required placeholder="np. Puchar jesieni 2025">
+        </div>
+        <div class="form-group">
+          <label for="tournament-date">Data</label>
+          <input type="date" id="tournament-date" name="date" required>
+        </div>
+
+        <div class="form-group">
+          <div class="teams-header">
+            <label>Drużyny</label>
+            <button type="button" id="btn-add-team" class="btn btn-secondary btn-sm">+ Drużyna</button>
+          </div>
+          <p class="hint">Liczba drużyn musi być parzysta (min. 2). Każda drużyna: nazwa + dwóch członków.</p>
+          <div id="teams-container"></div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Utwórz turniej</button>
+          <button type="button" id="btn-cancel" class="btn btn-secondary">Anuluj</button>
+        </div>
+      </form>
+      <div id="form-errors" class="errors hidden"></div>
+      <div id="form-success" class="success hidden"></div>
+    </section>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

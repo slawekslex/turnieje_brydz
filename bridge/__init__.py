@@ -1,0 +1,1 @@
+"""Bridge tournament application package."""
