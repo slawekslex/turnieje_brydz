@@ -10,6 +10,25 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="app-body">
+  <div class="settings-gear-wrap">
+    <button type="button" id="btn-settings" class="btn-settings-gear" title="Ustawienia" aria-label="Ustawienia">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+  <div id="settings-modal" class="settings-modal hidden" aria-hidden="true">
+    <div id="settings-overlay" class="settings-overlay"></div>
+    <div class="settings-panel">
+      <button type="button" id="settings-close" class="settings-close" aria-label="Zamknij">&times;</button>
+      <h2>Ustawienia</h2>
+      <div class="settings-row">
+        <span class="settings-label">Tryb debug</span>
+        <label class="settings-toggle-wrap">
+          <input type="checkbox" id="settings-debug-mode" class="settings-toggle-input">
+          <span class="settings-toggle-track"></span>
+        </label>
+      </div>
+    </div>
+  </div>
   <div class="container">
     <header>
       <h1>Turnieje brydżowe</h1>
@@ -74,5 +93,6 @@
     window.TOUR_ID = "{{ tour_id | e }}";
   </script>
   <script src="{{ url_for('static', filename='tournament_edit.js') }}"></script>
+  <script src="{{ url_for('static', filename='settings.js') }}"></script>
 </body>
 </html>

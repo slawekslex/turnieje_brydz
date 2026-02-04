@@ -31,9 +31,11 @@ from bridge.services.generator import (
 )
 from bridge.storage import (
     load_index,
+    load_settings,
     load_tournament,
     load_tournament_cycles,
     save_index,
+    save_settings,
     save_tournament,
     ensure_data_dir,
 )
@@ -103,6 +105,25 @@ def tournament_schedule_page(tour_id: str):
     if not path.exists():
         return render_template("404.html"), 404
     return render_template("tournament_schedule.html", tour_id=tour_id)
+
+
+@bp.route("/api/settings", methods=["GET"])
+def get_settings():
+    """Return app settings (e.g. debug_mode)."""
+    settings = load_settings(_data_dir())
+    return jsonify(settings)
+
+
+@bp.route("/api/settings", methods=["PATCH"])
+def update_settings():
+    """Update app settings. Body: { debug_mode?: bool }. Returns updated settings."""
+    body = request.get_json(force=True, silent=True) or {}
+    allowed = {"debug_mode"}
+    updates = {k: v for k, v in body.items() if k in allowed and isinstance(v, bool)}
+    if not updates:
+        return jsonify(load_settings(_data_dir()))
+    save_settings(_data_dir(), updates)
+    return jsonify(load_settings(_data_dir()))
 
 
 @bp.route("/api/tournaments", methods=["GET"])

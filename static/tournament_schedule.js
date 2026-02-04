@@ -298,6 +298,12 @@
     if (saveRoundStatus) { saveRoundStatus.textContent = ''; saveRoundStatus.className = 'save-round-status'; }
     tablesList.innerHTML = '';
     const deals = rnd.deals || [];
+    if (deals.length > 0) {
+      var topHeader = document.createElement('div');
+      topHeader.className = 'deal-row-header deal-row-header--global';
+      topHeader.innerHTML = '<span class="deal-header-cell deal-header-board">Board</span><span class="deal-header-cell">Kontrakt</span><span class="deal-header-cell">Rozgrywał</span><span class="deal-header-cell">Wist</span><span class="deal-header-cell">Wziątki</span><span class="deal-header-cell">Pkt</span>';
+      tablesList.appendChild(topHeader);
+    }
     rnd.tables.forEach(function (t) {
       const card = document.createElement('div');
       card.className = 'table-card-with-deals collapsed';
@@ -333,10 +339,6 @@
         dealsTitle.className = 'table-deals-title';
         dealsTitle.textContent = 'Rozdania';
         dealsContainer.appendChild(dealsTitle);
-        var headerRow = document.createElement('div');
-        headerRow.className = 'deal-row-header';
-        headerRow.innerHTML = '<span class="deal-header-cell deal-header-board">Board</span><span class="deal-header-cell">Kontrakt</span><span class="deal-header-cell">Rozgrywał</span><span class="deal-header-cell">Wist</span><span class="deal-header-cell">Wziątki</span><span class="deal-header-cell">Pkt</span>';
-        dealsContainer.appendChild(headerRow);
       }
       var DECLARERS = ['N', 'S', 'E', 'W'];
       deals.forEach(function (d) {

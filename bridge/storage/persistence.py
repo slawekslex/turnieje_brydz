@@ -61,3 +61,34 @@ def load_tournament_cycles(path: Path | str) -> list:
     with path.open("r", encoding="utf-8") as f:
         data = json.load(f)
     return data.get("cycles", [{"deals_per_round": 2}])
+
+
+DEFAULT_SETTINGS = {"debug_mode": False}
+
+
+def _settings_path(data_dir: Path) -> Path:
+    return data_dir / "settings.json"
+
+
+def load_settings(data_dir: Path) -> dict:
+    """Load app settings from data/settings.json. Returns defaults if missing."""
+    ensure_data_dir(data_dir)
+    path = _settings_path(data_dir)
+    if not path.exists():
+        return dict(DEFAULT_SETTINGS)
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        return {**DEFAULT_SETTINGS, **data}
+    except (json.JSONDecodeError, OSError):
+        return dict(DEFAULT_SETTINGS)
+
+
+def save_settings(data_dir: Path, settings: dict) -> None:
+    """Save app settings to data/settings.json. Merges with existing, then writes."""
+    ensure_data_dir(data_dir)
+    current = load_settings(data_dir)
+    current.update(settings)
+    path = _settings_path(data_dir)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(current, f, indent=2, ensure_ascii=False)
