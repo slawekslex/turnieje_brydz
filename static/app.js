@@ -8,8 +8,14 @@
   const form = document.getElementById('form-tournament');
   const teamsContainer = document.getElementById('teams-container');
   const btnAddTeam = document.getElementById('btn-add-team');
+  const btnAutoTeams = document.getElementById('btn-auto-teams');
   const formErrors = document.getElementById('form-errors');
   const formSuccess = document.getElementById('form-success');
+  const teamsSection = document.getElementById('teams-section');
+  const teamsSectionHeader = document.getElementById('teams-section-header');
+  const teamsSectionTitle = document.getElementById('teams-section-title');
+  const teamsSectionToggle = document.getElementById('teams-section-toggle');
+  const teamsSectionBody = document.getElementById('teams-section-body');
 
   function showList() {
     addSection.classList.add('hidden');
@@ -31,9 +37,27 @@
         tournamentsUl.innerHTML = '';
         data.forEach(function (t) {
           const li = document.createElement('li');
+          li.className = 'tournament-row';
+          const href = '/tournament/' + encodeURIComponent(t.id);
           li.innerHTML =
-            '<span><strong>' + escapeHtml(t.name) + '</strong></span>' +
-            '<span class="tournament-date">' + escapeHtml(t.date) + '</span>';
+            '<a href="' + escapeHtml(href) + '" class="tournament-link">' +
+              '<span><strong>' + escapeHtml(t.name) + '</strong></span>' +
+              '<span class="tournament-date">' + escapeHtml(t.date) + '</span>' +
+            '</a>' +
+            '<button type="button" class="btn btn-archive btn-sm" data-id="' + escapeHtml(t.id) + '" title="Archiwizuj">Archiwizuj</button>';
+          li.querySelector('.btn-archive').addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var id = this.getAttribute('data-id');
+            fetch('/api/tournaments/' + encodeURIComponent(id) + '/archive', { method: 'POST' })
+              .then(function (res) { return res.json(); })
+              .then(function (result) {
+                if (result.ok) {
+                  li.remove();
+                  listEmpty.classList.toggle('hidden', tournamentsUl.querySelectorAll('li').length > 0);
+                }
+              });
+          });
           tournamentsUl.appendChild(li);
         });
       })
@@ -59,8 +83,34 @@
       '<button type="button" class="btn-remove-team">Usuń</button>';
     block.querySelector('.btn-remove-team').addEventListener('click', function () {
       block.remove();
+      updateTeamsSectionTitle();
     });
     teamsContainer.appendChild(block);
+    updateTeamsSectionTitle();
+  }
+
+  function getTeamCount() {
+    return teamsContainer.querySelectorAll('.team-block').length;
+  }
+
+  function updateTeamsSectionTitle() {
+    var n = getTeamCount();
+    if (teamsSection.classList.contains('collapsed')) {
+      teamsSectionTitle.textContent = n === 1 ? 'Drużyny (1 drużyna)' : 'Drużyny (' + n + ' drużyn)';
+    } else {
+      teamsSectionTitle.textContent = 'Drużyny';
+    }
+  }
+
+  function setTeamsSectionCollapsed(collapsed) {
+    if (collapsed) {
+      teamsSection.classList.add('collapsed');
+      teamsSectionToggle.textContent = '\u25B6';
+    } else {
+      teamsSection.classList.remove('collapsed');
+      teamsSectionToggle.textContent = '\u25BC';
+    }
+    updateTeamsSectionTitle();
   }
 
   function collectTeams() {
@@ -75,12 +125,22 @@
     return teams;
   }
 
+  teamsSectionToggle.textContent = '\u25BC';
+
+  teamsSectionHeader.addEventListener('click', function () {
+    var collapsed = teamsSection.classList.toggle('collapsed');
+    teamsSectionToggle.textContent = collapsed ? '\u25B6' : '\u25BC';
+    updateTeamsSectionTitle();
+  });
+
   btnAdd.addEventListener('click', function () {
     teamsContainer.innerHTML = '';
     addTeamBlock({});
     addTeamBlock({});
     form.reset();
     document.getElementById('tournament-date').value = new Date().toISOString().slice(0, 10);
+    setTeamsSectionCollapsed(false);
+    updateTeamsSectionTitle();
     showAdd();
   });
 
@@ -88,6 +148,31 @@
 
   btnAddTeam.addEventListener('click', function () {
     addTeamBlock({});
+  });
+
+  btnAutoTeams.addEventListener('click', function (e) {
+    e.stopPropagation();
+    const blocks = teamsContainer.querySelectorAll('.team-block');
+    const n = blocks.length;
+    if (n === 0) {
+      for (var i = 0; i < 4; i++) {
+        addTeamBlock({
+          name: 'Drużyna ' + (i + 1),
+          member1: 'Gracz ' + (i + 1) + 'A',
+          member2: 'Gracz ' + (i + 1) + 'B'
+        });
+      }
+      return;
+    }
+    blocks.forEach(function (block, i) {
+      var nameEl = block.querySelector('.team-name');
+      var m1El = block.querySelector('.member1');
+      var m2El = block.querySelector('.member2');
+      if (!(nameEl.value || '').trim()) nameEl.value = 'Drużyna ' + (i + 1);
+      if (!(m1El.value || '').trim()) m1El.value = 'Gracz ' + (i + 1) + 'A';
+      if (!(m2El.value || '').trim()) m2El.value = 'Gracz ' + (i + 1) + 'B';
+    });
+    updateTeamsSectionTitle();
   });
 
   form.addEventListener('submit', function (e) {

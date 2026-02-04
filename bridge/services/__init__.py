@@ -1,6 +1,7 @@
 """Business logic: schedule generation, validation."""
 
 from bridge.services.generator import (
+    add_round_robin,
     assign_deals_to_rounds,
     generate_random_round_robin,
     generate_round_robin,
@@ -10,6 +11,7 @@ from bridge.services.generator import (
 )
 
 __all__ = [
+    "add_round_robin",
     "assign_deals_to_rounds",
     "generate_random_round_robin",
     "generate_round_robin",

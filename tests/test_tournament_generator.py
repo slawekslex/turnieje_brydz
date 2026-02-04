@@ -12,6 +12,7 @@ from bridge.models.round_models import (
     deal_from_board_number,
 )
 from bridge.services.generator import (
+    add_round_robin,
     generate_round_robin,
     generate_random_round_robin,
     validate_round_robin,
@@ -193,6 +194,27 @@ class TournamentGeneratorTests(unittest.TestCase):
 
         score = score_cycle_difference(A, B)
         self.assertGreaterEqual(score, 0)
+
+    def test_add_round_robin_generates_three_cycles(self) -> None:
+        teams = _make_teams(6)
+        rng = random.Random(999)
+
+        cycle_a = add_round_robin(teams, [], k=100, rng=rng)
+        cycle_b = add_round_robin(teams, [cycle_a], k=50, rng=rng)
+        cycle_c = add_round_robin(teams, [cycle_a, cycle_b], k=50, rng=rng)
+
+        for cycle in (cycle_a, cycle_b, cycle_c):
+            validate_round_robin(teams, cycle)
+            self.assertEqual(len(cycle), 5)
+            for rnd in cycle:
+                self.assertEqual(len(rnd.tables), 3)
+
+        score_ab = score_cycle_difference(cycle_a, cycle_b)
+        score_ac = score_cycle_difference(cycle_a, cycle_c)
+        score_bc = score_cycle_difference(cycle_b, cycle_c)
+        self.assertGreaterEqual(score_ab, 0)
+        self.assertGreaterEqual(score_ac, 0)
+        self.assertGreaterEqual(score_bc, 0)
 
 
 if __name__ == "__main__":

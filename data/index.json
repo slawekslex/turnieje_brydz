@@ -2,6 +2,13 @@
   {
     "id": "43c95f78-cb1e-4e09-97ff-83c791a1f78d",
     "name": "Testowy turniej 1",
-    "date": "2026-02-04"
+    "date": "2026-02-04",
+    "archived": true
+  },
+  {
+    "id": "4b06e80d-11aa-4e70-a903-feb6bb0fa7c6",
+    "name": "Test 1",
+    "date": "2026-02-04",
+    "archived": false
   }
 ]

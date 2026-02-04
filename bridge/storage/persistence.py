@@ -33,10 +33,16 @@ def save_index(data_dir: Path, entries: list) -> None:
         json.dump(entries, f, indent=2, ensure_ascii=False)
 
 
-def save_tournament(tournament: Tournament, path: Path | str) -> None:
-    """Save a tournament to a JSON file."""
+def save_tournament(
+    tournament: Tournament,
+    path: Path | str,
+    cycles: list | None = None,
+) -> None:
+    """Save a tournament to a JSON file. Optionally include cycles config."""
     path = Path(path)
     data = tournament_to_dict(tournament)
+    if cycles is not None:
+        data["cycles"] = cycles
     with path.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
@@ -47,3 +53,11 @@ def load_tournament(path: Path | str) -> Tournament:
     with path.open("r", encoding="utf-8") as f:
         data = json.load(f)
     return tournament_from_dict(data)
+
+
+def load_tournament_cycles(path: Path | str) -> list:
+    """Load the cycles config from a tournament JSON file. Default: one cycle, 2 deals/round."""
+    path = Path(path)
+    with path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    return data.get("cycles", [{"deals_per_round": 2}])

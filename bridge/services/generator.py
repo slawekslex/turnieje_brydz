@@ -154,23 +154,14 @@ def validate_round_robin(teams: List[Team], rounds: List[Round]) -> None:
     print("Round-robin schedule is valid")
 
 
-def generate_random_round_robin(
+def _generate_single_random_round_robin(
     teams: List[Team],
-    rng: Optional[random.Random] = None,
+    rng: random.Random,
 ) -> List[Round]:
     """
-    Generate a random round-robin schedule.
-
-    - Uses a random permutation of the teams as the initial ordering
-      for the circle method.
-    - For each pairing at each table, randomly assigns which team
-      sits NS and which sits EW.
-    - Only the structural schedule (tables per round) is built here;
-      deals are not assigned.
+    Generate one random round-robin cycle (circle method + random NS/EW).
+    Used internally by add_round_robin.
     """
-    if rng is None:
-        rng = random.Random()
-
     num_teams = len(teams)
     if num_teams < 2 or num_teams % 2 != 0:
         raise ValueError("Number of teams must be an even integer >= 2")
@@ -223,6 +214,65 @@ def generate_random_round_robin(
         rotation = [fixed] + rest
 
     return rounds
+
+
+def add_round_robin(
+    teams: List[Team],
+    existing_cycles: List[List[Round]],
+    k: int = 100,
+    rng: Optional[random.Random] = None,
+) -> List[Round]:
+    """
+    Add a new round-robin cycle that minimizes penalty across all existing cycles.
+
+    Tries k random round-robin schedules and returns the one with the lowest
+    total penalty (sum of score_cycle_difference with each existing cycle).
+    When existing_cycles is empty, samples once and returns that cycle.
+    """
+    if rng is None:
+        rng = random.Random()
+
+    if k <= 0:
+        raise ValueError("k must be a positive integer")
+
+    num_teams = len(teams)
+    if num_teams < 2 or num_teams % 2 != 0:
+        raise ValueError("Number of teams must be an even integer >= 2")
+
+    if not existing_cycles:
+        cycle = _generate_single_random_round_robin(teams, rng)
+        validate_round_robin(teams, cycle)
+        return cycle
+
+    best_cycle: Optional[List[Round]] = None
+    best_total_penalty: Optional[int] = None
+
+    for _ in range(k):
+        candidate = _generate_single_random_round_robin(teams, rng)
+        validate_round_robin(teams, candidate)
+
+        total_penalty = 0
+        for existing in existing_cycles:
+            total_penalty += score_cycle_difference(candidate, existing)
+
+        if best_total_penalty is None or total_penalty < best_total_penalty:
+            best_total_penalty = total_penalty
+            best_cycle = candidate
+
+    assert best_cycle is not None and best_total_penalty is not None
+    return best_cycle
+
+
+def generate_random_round_robin(
+    teams: List[Team],
+    rng: Optional[random.Random] = None,
+) -> List[Round]:
+    """
+    Generate a random round-robin schedule (single cycle, no penalty minimization).
+
+    Convenience wrapper around add_round_robin(teams, [], k=1).
+    """
+    return add_round_robin(teams, [], k=1, rng=rng)
 
 
 def score_cycle_difference(
@@ -313,24 +363,10 @@ def generate_two_round_robin(
     if k <= 0:
         raise ValueError("k must be a positive integer")
 
-    cycle_a = generate_random_round_robin(teams, rng=rng)
-    validate_round_robin(teams, cycle_a)
+    cycle_a = add_round_robin(teams, [], k=1, rng=rng)
+    cycle_b = add_round_robin(teams, [cycle_a], k=k, rng=rng)
 
-    best_b: Optional[List[Round]] = None
-    best_score: Optional[int] = None
+    score = score_cycle_difference(cycle_a, cycle_b)
+    print(f"Best difference score over {k} candidates: {score}")
 
-    for _ in range(k):
-        candidate_b = generate_random_round_robin(teams, rng=rng)
-        validate_round_robin(teams, candidate_b)
-
-        score = score_cycle_difference(cycle_a, candidate_b)
-
-        if best_score is None or score < best_score:
-            best_score = score
-            best_b = candidate_b
-
-    assert best_b is not None and best_score is not None
-
-    print(f"Best difference score over {k} candidates: {best_score}")
-
-    return cycle_a, best_b
+    return cycle_a, cycle_b

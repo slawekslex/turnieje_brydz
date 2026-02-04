@@ -91,16 +91,29 @@ h2 {
   margin: 0;
 }
 
-#tournaments-ul li {
-  padding: 0.6rem 0;
+#tournaments-ul li.tournament-row {
+  display: flex;
+  align-items: center;
   border-bottom: 1px solid #eee;
+}
+
+#tournaments-ul li.tournament-row:last-child {
+  border-bottom: none;
+}
+
+#tournaments-ul .tournament-link {
+  flex: 1;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 0.6rem 0;
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
 }
 
-#tournaments-ul li:last-child {
-  border-bottom: none;
+#tournaments-ul .tournament-link:hover {
+  background: #f9fafb;
 }
 
 #tournaments-ul .tournament-date {
@@ -108,9 +121,38 @@ h2 {
   font-size: 0.9rem;
 }
 
+#tournaments-ul .btn-archive {
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
 /* Form */
 .form-group {
   margin-bottom: 1rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-row-name-date {
+  flex-wrap: wrap;
+}
+
+.form-row .form-group-flex {
+  flex: 1;
+  min-width: 0;
+}
+
+.form-row-name-date .form-group-flex:first-child {
+  min-width: 12rem;
+}
+
+.form-row-name-date .form-group-flex:last-child {
+  flex: 0 0 auto;
+  min-width: 10rem;
 }
 
 .form-group label {
@@ -140,14 +182,58 @@ h2 {
   margin: 0.25rem 0 0.5rem;
 }
 
+/* Collapsible teams section */
+.teams-section {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.teams-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.65rem;
+  background: #f9fafb;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+.teams-section-header:hover {
+  background: #f3f4f6;
+}
+
+.teams-section-title {
+  flex: 1;
+}
+
+.teams-section-toggle {
+  margin-left: 0.5rem;
+  color: #6b7280;
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.teams-section.collapsed .teams-section-toggle {
+  transform: rotate(-90deg);
+}
+
+.teams-section-body {
+  padding: 0.75rem 0.65rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.teams-section.collapsed .teams-section-body {
+  display: none;
+}
+
 .teams-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-.teams-header label {
-  margin-bottom: 0;
+  margin-bottom: 0.5rem;
 }
 
 .team-block {
@@ -194,6 +280,92 @@ h2 {
 
 .team-block .btn-remove-team:hover {
   background: #fee2e2;
+}
+
+/* Rounds structure panel */
+.rounds-structure-panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  background: #fafbfc;
+}
+
+.rounds-structure-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.rounds-structure-panel .hint {
+  margin-bottom: 0.75rem;
+}
+
+#cycles-container {
+  margin-bottom: 0.75rem;
+}
+
+.cycle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.cycle-row label {
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.cycle-row input {
+  width: 4rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.cycle-row .cycle-deals-suffix {
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.cycle-row .btn-remove-cycle {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cycle-row .btn-remove-cycle:hover {
+  background: #fee2e2;
+}
+
+#btn-add-cycle {
+  margin-bottom: 1rem;
+}
+
+.rounds-totals {
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border: 2px solid #2563eb;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.rounds-totals-label {
+  margin-right: 0.5rem;
+  color: #374151;
+}
+
+.rounds-totals-value {
+  color: #1d4ed8;
 }
 
 .form-actions {
