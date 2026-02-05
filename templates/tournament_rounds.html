@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Harmonogram – Turnieje brydżowe</title>
+  <title>Rundy – Turnieje brydżowe</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="app-body schedule-page">
+<body class="app-body rounds-page">
   <div class="settings-gear-wrap">
     <button type="button" id="btn-settings" class="btn-settings-gear" title="Ustawienia" aria-label="Ustawienia">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -31,30 +31,46 @@
   </div>
   <div class="container">
     <header>
-      <h1 id="tournament-title">Harmonogram</h1>
+      <h1 id="tournament-title">Rundy</h1>
       <div class="header-actions">
         <a href="#" id="link-edit" class="btn btn-secondary btn-sm">Edycja</a>
         <a href="{{ url_for('api.index') }}" class="btn btn-secondary btn-sm">← Lista turniejów</a>
       </div>
     </header>
 
-    <section class="card schedule-card">
+    <section class="card rounds-card">
       <p id="load-error" class="errors hidden"></p>
-      <div id="schedule-content" class="hidden">
-        <p class="schedule-meta muted" id="schedule-meta"></p>
+      <div id="rounds-content" class="hidden">
+        <p class="rounds-meta muted" id="rounds-meta"></p>
 
         <div class="rounds-scroll" id="rounds-scroll">
           <div class="rounds-scroll-inner" id="rounds-list"></div>
         </div>
 
         <div class="round-detail" id="round-detail">
+          <!-- Single header for the selected round (shared by edit and view) -->
           <div class="round-detail-header">
             <h2 class="round-detail-title" id="round-detail-title">Runda 1</h2>
             <span class="round-detail-caption" id="round-detail-caption"></span>
-            <button type="button" class="btn btn-primary btn-save-round" id="btn-save-round">Zapisz rundę</button>
-            <span id="save-round-status" class="save-round-status" aria-live="polite"></span>
+            <span id="round-detail-edit-actions" class="round-detail-actions">
+              <button type="button" class="btn btn-primary btn-save-round" id="btn-save-round">Zapisz rundę</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-auto-round">Auto</button>
+              <span id="save-round-status" class="save-round-status" aria-live="polite"></span>
+            </span>
+            <span id="round-detail-view-actions" class="round-detail-actions hidden">
+              <a href="#" id="link-round-ranking" class="btn btn-secondary btn-sm">Ranking</a>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-round-edit">Edycja</button>
+            </span>
           </div>
-          <div id="tables-list"></div>
+          <!-- Edit mode: tables with deal inputs -->
+          <div id="round-detail-edit" class="round-detail-mode">
+            <div id="tables-list"></div>
+          </div>
+          <!-- View mode: wyniki inline -->
+          <div id="round-detail-view" class="round-detail-mode hidden">
+            <p class="round-view-message muted">Wszystkie rozdania zapisane.</p>
+            <div id="round-view-wyniki" class="round-view-wyniki"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -63,7 +79,7 @@
   <script>
     window.TOUR_ID = "{{ tour_id | e }}";
   </script>
-  <script src="{{ url_for('static', filename='tournament_schedule.js') }}"></script>
+  <script src="{{ url_for('static', filename='tournament_rounds.js') }}"></script>
   <script src="{{ url_for('static', filename='settings.js') }}"></script>
 </body>
 </html>

@@ -15,7 +15,7 @@ from bridge.models.contract import (
     CONTRACT_SUITS,
     validate_contract_string,
 )
-from bridge.scoring import compute_score
+from bridge.scoring import compute_score, calculate_deal_imp_scores
 from bridge.models.round_models import (
     Result,
     Round,
@@ -98,13 +98,123 @@ def tournament_edit_page(tour_id: str):
     return render_template("tournament_edit.html", tour_id=tour_id)
 
 
-@bp.route("/tournament/<tour_id>/schedule")
-def tournament_schedule_page(tour_id: str):
-    """Serve the tournament schedule view page."""
+@bp.route("/tournament/<tour_id>/rounds")
+def tournament_rounds_page(tour_id: str):
+    """Serve the tournament rounds page (enter results, view results, standings)."""
     path = _tournament_path(tour_id)
     if not path.exists():
         return render_template("404.html"), 404
-    return render_template("tournament_schedule.html", tour_id=tour_id)
+    return render_template("tournament_rounds.html", tour_id=tour_id)
+
+
+def _round_results_view_data(tournament, round_id: int):
+    """Build deal-by-deal results with IMPs for the round results page. Returns (round, deals_with_tables) or (None, None) if round not found."""
+    rnd = next((r for r in tournament.rounds if r.id == round_id), None)
+    if not rnd:
+        return None, None
+    team_by_id = {t.id: t.name for t in tournament.teams}
+    tables_sorted = sorted(rnd.tables, key=lambda t: t.table_number)
+    deals_with_tables = []
+    for d in rnd.deals:
+        rows = []
+        ns_scores = []
+        for tbl in tables_sorted:
+            res = rnd.results_by_table_deal.get((tbl.table_number, d.id))
+            ns_name = team_by_id.get(tbl.ns_team_id, "?")
+            ew_name = team_by_id.get(tbl.ew_team_id, "?")
+            if res:
+                rows.append({
+                    "table_number": tbl.table_number,
+                    "ns_team": ns_name,
+                    "ew_team": ew_name,
+                    "contract": res.contract or "—",
+                    "declarer": res.declarer or "—",
+                    "opening_lead": res.opening_lead or "—",
+                    "tricks_taken": res.tricks_taken if res.tricks_taken is not None else "—",
+                    "ns_score": res.ns_score,
+                    "ew_score": res.ew_score,
+                })
+                ns_scores.append(res.ns_score)
+            else:
+                rows.append({
+                    "table_number": tbl.table_number,
+                    "ns_team": ns_name,
+                    "ew_team": ew_name,
+                    "contract": "—",
+                    "declarer": "—",
+                    "opening_lead": "—",
+                    "tricks_taken": "—",
+                    "ns_score": None,
+                    "ew_score": None,
+                })
+        if len(ns_scores) == len(rows) and ns_scores:
+            imps = calculate_deal_imp_scores(ns_scores)
+            for i, row in enumerate(rows):
+                row["ns_imp"] = imps[i][0]
+                row["ew_imp"] = imps[i][1]
+        else:
+            for row in rows:
+                row["ns_imp"] = None
+                row["ew_imp"] = None
+        deals_with_tables.append({
+            "deal": d,
+            "table_rows": rows,
+        })
+    return rnd, deals_with_tables
+
+
+@bp.route("/api/tournaments/<tour_id>/rounds/<int:round_id>/deal-results", methods=["GET"])
+def get_round_deal_results(tour_id: str, round_id: int):
+    """Return deal-by-deal results with IMPs for a round (JSON for inline rendering)."""
+    path = _tournament_path(tour_id)
+    if not path.exists():
+        return jsonify({"error": "Not found"}), 404
+    tournament = load_tournament(path)
+    rnd, deals_with_tables = _round_results_view_data(tournament, round_id)
+    if not rnd:
+        return jsonify({"error": "Round not found"}), 404
+    out = []
+    for item in deals_with_tables:
+        d = item["deal"]
+        out.append({
+            "deal": {"number": d.number, "dealer": d.dealer, "vulnerability": d.vulnerability},
+            "table_rows": item["table_rows"],
+        })
+    return jsonify({"deals_with_tables": out})
+
+
+@bp.route("/tournament/<tour_id>/rounds/<int:round_id>/results")
+def round_results_page(tour_id: str, round_id: int):
+    """Wyniki rozdań: read-only view of contracts and IMP scores per deal per table."""
+    path = _tournament_path(tour_id)
+    if not path.exists():
+        return render_template("404.html"), 404
+    tournament = load_tournament(path)
+    rnd, deals_with_tables = _round_results_view_data(tournament, round_id)
+    if not rnd:
+        return render_template("404.html"), 404
+    return render_template(
+        "round_results.html",
+        tour_id=tour_id,
+        tournament_name=tournament.name,
+        round_number=rnd.round_number,
+        round_id=rnd.id,
+        deals_with_tables=deals_with_tables,
+    )
+
+
+@bp.route("/tournament/<tour_id>/rounds/<int:round_id>/ranking")
+def round_ranking_placeholder(tour_id: str, round_id: int):
+    """Placeholder for round ranking page."""
+    path = _tournament_path(tour_id)
+    if not path.exists():
+        return render_template("404.html"), 404
+    return render_template(
+        "placeholder.html",
+        tour_id=tour_id,
+        title="Ranking",
+        message="Strona „Ranking” będzie dostępna w kolejnej wersji.",
+    )
 
 
 @bp.route("/api/settings", methods=["GET"])
@@ -159,9 +269,9 @@ def get_tournament(tour_id: str):
     })
 
 
-@bp.route("/api/tournaments/<tour_id>/schedule", methods=["GET"])
-def get_tournament_schedule(tour_id: str):
-    """Return tournament schedule: name, date, rounds with deals and tables (team names + results per deal)."""
+@bp.route("/api/tournaments/<tour_id>/rounds", methods=["GET"])
+def get_tournament_rounds(tour_id: str):
+    """Return tournament rounds data: name, date, rounds with deals and tables (team names + results per deal)."""
     path = _tournament_path(tour_id)
     if not path.exists():
         return jsonify({"error": "Not found"}), 404

@@ -41,7 +41,9 @@
 
   if (toggleDebug) {
     toggleDebug.addEventListener('change', function () {
-      saveDebugMode(toggleDebug.checked);
+      var value = toggleDebug.checked;
+      saveDebugMode(value);
+      document.dispatchEvent(new CustomEvent('debugModeChanged', { detail: { debug_mode: value } }));
     });
   }
 })();

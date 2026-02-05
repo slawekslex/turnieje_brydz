@@ -49,7 +49,7 @@ body.app-body {
   margin: 0 auto;
 }
 
-.schedule-page .container {
+.rounds-page .container {
   max-width: 1000px;
 }
 
@@ -512,13 +512,13 @@ a.btn {
 }
 
 /* --------------------------------------------------------------------------
-   Schedule page
+   Rounds page (Rundy)
    -------------------------------------------------------------------------- */
-.schedule-card {
+.rounds-card {
   max-width: 100%;
 }
 
-.schedule-meta {
+.rounds-meta {
   margin-bottom: 1rem;
   color: var(--text-muted);
 }
@@ -569,11 +569,28 @@ a.btn {
   color: #fff;
 }
 
+.round-pill.round-pill--complete {
+  background: var(--success-bg);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.round-pill.round-pill--complete:hover {
+  background: rgba(22, 163, 74, 0.15);
+  border-color: var(--success);
+}
+
+.round-pill.selected.round-pill--complete {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .round-detail-header {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
   flex-wrap: wrap;
   position: sticky;
   top: 0;
@@ -582,10 +599,23 @@ a.btn {
   padding: 0.75rem 0 1rem;
   margin-left: -0.25rem;
   margin-right: -0.25rem;
-  padding-left: 0.25rem;
-  padding-right: 0.25rem;
-  border-bottom: 1px solid var(--border);
-  margin-top: -0.25rem;
+}
+
+.round-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.round-view-message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.round-view-wyniki {
+  margin-top: 1.25rem;
 }
 
 .round-detail-title {
@@ -915,6 +945,81 @@ a.btn {
   font-size: 0.75rem;
   color: var(--danger);
   line-height: 1.2;
+}
+
+/* --------------------------------------------------------------------------
+   Round results page (Wyniki rozdań) – read-only deal tables
+   -------------------------------------------------------------------------- */
+.deal-results-section {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.deal-results-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.deal-results-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.deal-results-header .deal-board {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.deal-results-header .deal-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.deal-results-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.deal-results-table {
+  width: 100%;
+  min-width: 36rem;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  font-family: var(--font);
+}
+
+.deal-results-table th,
+.deal-results-table td {
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.deal-results-table th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--bg-elevated);
+}
+
+.deal-results-table tbody tr:hover {
+  background: var(--bg-muted);
+}
+
+.deal-results-table .deal-imp-cell {
+  font-weight: 600;
+  color: var(--text);
 }
 
 .btn-save-deal {

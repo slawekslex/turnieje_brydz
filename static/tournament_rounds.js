@@ -1,20 +1,29 @@
 (function () {
   const tourId = window.TOUR_ID;
-  const scheduleContent = document.getElementById('schedule-content');
+  const roundsContent = document.getElementById('rounds-content');
   const loadError = document.getElementById('load-error');
   const tournamentTitle = document.getElementById('tournament-title');
-  const scheduleMeta = document.getElementById('schedule-meta');
+  const roundsMeta = document.getElementById('rounds-meta');
   const roundsList = document.getElementById('rounds-list');
   const roundDetailTitle = document.getElementById('round-detail-title');
   const roundDetailCaption = document.getElementById('round-detail-caption');
   const tablesList = document.getElementById('tables-list');
   const linkEdit = document.getElementById('link-edit');
   const btnSaveRound = document.getElementById('btn-save-round');
+  const btnAutoRound = document.getElementById('btn-auto-round');
   const saveRoundStatus = document.getElementById('save-round-status');
+  const linkRoundRanking = document.getElementById('link-round-ranking');
+  const roundDetailEdit = document.getElementById('round-detail-edit');
+  const roundDetailView = document.getElementById('round-detail-view');
+  const roundDetailEditActions = document.getElementById('round-detail-edit-actions');
+  const roundDetailViewActions = document.getElementById('round-detail-view-actions');
+  const btnRoundEdit = document.getElementById('btn-round-edit');
+  const roundViewWyniki = document.getElementById('round-view-wyniki');
 
   let schedule = null;
   let selectedRoundIndex = 0;
   let scheduleHasUnsavedChanges = false;
+  let roundViewMode = 'edit'; // 'edit' | 'view'
 
   function escapeHtml(s) {
     const div = document.createElement('div');
@@ -74,6 +83,93 @@
       if (res.ns_score == null && res.ew_score == null) return false;
     }
     return true;
+  }
+
+  /** True when save response said all results ok (round.all_deals_saved) or we have all data in memory (e.g. on load). */
+  function roundAllDealsSaved(round) {
+    if (!round) return false;
+    if (round.all_deals_saved === true) return true;
+    if (!round.tables || !round.tables.length) return false;
+    var deals = round.deals || [];
+    for (var i = 0; i < round.tables.length; i++) {
+      if (!tableAllResultsFilledAndValidated(round.tables[i], deals)) return false;
+    }
+    return true;
+  }
+
+  function updateRoundPillStates() {
+    if (!schedule || !roundsList) return;
+    var pills = roundsList.querySelectorAll('.round-pill');
+    schedule.rounds.forEach(function (rnd, i) {
+      var pill = pills[i];
+      if (pill) pill.classList.toggle('round-pill--complete', roundAllDealsSaved(rnd));
+    });
+  }
+
+  function setRankingLink() {
+    if (!schedule || !schedule.rounds[selectedRoundIndex] || !linkRoundRanking) return;
+    var rnd = schedule.rounds[selectedRoundIndex];
+    linkRoundRanking.href = '/tournament/' + encodeURIComponent(tourId) + '/rounds/' + encodeURIComponent(String(rnd.round_id)) + '/ranking';
+  }
+
+  function formatScoreSigned(n) {
+    if (n === null || n === undefined) return '—';
+    var x = parseInt(n, 10);
+    if (isNaN(x)) return '—';
+    return x > 0 ? '+' + x : String(x);
+  }
+
+  function renderWynikiInline(data) {
+    if (!roundViewWyniki || !data || !data.deals_with_tables) { roundViewWyniki.innerHTML = ''; return; }
+    var html = '';
+    var vul = data.deals_with_tables;
+    for (var i = 0; i < vul.length; i++) {
+      var item = vul[i];
+      var deal = item.deal || {};
+      var vulStr = (deal.vulnerability || '').trim();
+      var nsVul = vulStr === 'N-S' || vulStr === 'Both';
+      var ewVul = vulStr === 'E-W' || vulStr === 'Both';
+      html += '<div class="deal-results-section">';
+      html += '<div class="deal-results-header">';
+      html += '<span class="deal-board">Rozdanie ' + escapeHtml(String(deal.number)) + '</span>';
+      html += '<span class="deal-meta"><span class="deal-dealer">Rozdający: ' + escapeHtml(deal.dealer || '') + '</span> ';
+      html += '<span class="vul-label"><span class="vul-seg vul-ns ' + (nsVul ? 'vul-vul' : 'vul-nv') + '">NS</span><span class="vul-seg vul-ew ' + (ewVul ? 'vul-vul' : 'vul-nv') + '">EW</span></span></span>';
+      html += '</div>';
+      html += '<div class="deal-results-table-wrap"><table class="deal-results-table">';
+      html += '<thead><tr><th>Stół</th><th>NS</th><th>EW</th><th>Kontrakt</th><th>Rozgrywał</th><th>Wist</th><th>Wziątki</th><th>Pkt NS</th><th>Pkt EW</th><th>IMP NS</th><th>IMP EW</th></tr></thead><tbody>';
+      var rows = item.table_rows || [];
+      for (var j = 0; j < rows.length; j++) {
+        var row = rows[j];
+        html += '<tr><td>' + escapeHtml(String(row.table_number)) + '</td><td>' + escapeHtml(row.ns_team || '') + '</td><td>' + escapeHtml(row.ew_team || '') + '</td>';
+        html += '<td>' + escapeHtml(row.contract || '—') + '</td><td>' + escapeHtml(row.declarer || '—') + '</td><td>' + escapeHtml(String(row.opening_lead || '—')) + '</td><td>' + escapeHtml(String(row.tricks_taken !== undefined && row.tricks_taken !== null ? row.tricks_taken : '—')) + '</td>';
+        html += '<td>' + formatScoreSigned(row.ns_score) + '</td><td>' + formatScoreSigned(row.ew_score) + '</td>';
+        html += '<td class="deal-imp-cell">' + formatScoreSigned(row.ns_imp) + '</td><td class="deal-imp-cell">' + formatScoreSigned(row.ew_imp) + '</td></tr>';
+      }
+      html += '</tbody></table></div></div>';
+    }
+    roundViewWyniki.innerHTML = html;
+  }
+
+  function fetchAndRenderWyniki() {
+    if (!schedule || !schedule.rounds[selectedRoundIndex] || !roundViewWyniki) return;
+    var roundId = schedule.rounds[selectedRoundIndex].round_id;
+    roundViewWyniki.innerHTML = '<p class="muted">Ładowanie wyników…</p>';
+    fetch('/api/tournaments/' + encodeURIComponent(tourId) + '/rounds/' + encodeURIComponent(String(roundId)) + '/deal-results')
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        renderWynikiInline(data || {});
+      })
+      .catch(function () {
+        roundViewWyniki.innerHTML = '<p class="errors">Błąd ładowania wyników.</p>';
+      });
+  }
+
+  function setRoundPanel(mode) {
+    var isEdit = mode === 'edit';
+    if (roundDetailEdit) roundDetailEdit.classList.toggle('hidden', !isEdit);
+    if (roundDetailView) roundDetailView.classList.toggle('hidden', isEdit);
+    if (roundDetailEditActions) roundDetailEditActions.classList.toggle('hidden', !isEdit);
+    if (roundDetailViewActions) roundDetailViewActions.classList.toggle('hidden', isEdit);
   }
 
   function updateTableCardCheckmarks() {
@@ -241,12 +337,14 @@
             setDealRowStateFromValidation(entry.row, null, []);
           }
         });
+        var allSavedByBackend = data.results.length > 0 && data.results.every(function (r) { return r && r.ok === true; });
         if (schedule && schedule.rounds[selectedRoundIndex]) {
+          var rnd = schedule.rounds[selectedRoundIndex];
           for (var j = 0; j < resultsPayload.length && j < data.results.length; j++) {
             var r = data.results[j];
             if (!r || !r.ok) continue;
             var payloadItem = resultsPayload[j];
-            var t = schedule.rounds[selectedRoundIndex].tables.find(function (x) { return x.table_number === payloadItem.table_number; });
+            var t = rnd.tables.find(function (x) { return x.table_number === payloadItem.table_number; });
             if (t && t.results) {
               t.results[String(payloadItem.deal_id)] = {
                 contract: payloadItem.contract,
@@ -258,9 +356,17 @@
               };
             }
           }
+          if (allSavedByBackend) rnd.all_deals_saved = true;
         }
         scheduleHasUnsavedChanges = false;
         updateTableCardCheckmarks();
+        updateRoundPillStates();
+        if (allSavedByBackend) {
+          roundViewMode = 'view';
+          setRankingLink();
+          setRoundPanel('view');
+          fetchAndRenderWyniki();
+        }
         if (saveRoundStatus) {
           var savedCount = 0;
           for (var k = 0; k < data.results.length; k++) { if (data.results[k] && data.results[k].ok) savedCount++; }
@@ -289,21 +395,62 @@
       });
   }
 
-  function setRound(index) {
-    if (!schedule || !schedule.rounds.length) return;
-    selectedRoundIndex = Math.max(0, Math.min(index, schedule.rounds.length - 1));
-    const rnd = schedule.rounds[selectedRoundIndex];
-    roundDetailTitle.textContent = 'Runda ' + rnd.round_number;
-    if (roundDetailCaption) roundDetailCaption.textContent = schedule.rounds.length ? ' z ' + schedule.rounds.length : '';
-    if (saveRoundStatus) { saveRoundStatus.textContent = ''; saveRoundStatus.className = 'save-round-status'; }
-    tablesList.innerHTML = '';
-    const deals = rnd.deals || [];
-    if (deals.length > 0) {
-      var topHeader = document.createElement('div');
-      topHeader.className = 'deal-row-header deal-row-header--global';
-      topHeader.innerHTML = '<span class="deal-header-cell deal-header-board">Board</span><span class="deal-header-cell">Kontrakt</span><span class="deal-header-cell">Rozgrywał</span><span class="deal-header-cell">Wist</span><span class="deal-header-cell">Wziątki</span><span class="deal-header-cell">Pkt</span>';
-      tablesList.appendChild(topHeader);
+  function setAutoButtonVisibility(debugMode) {
+    if (btnAutoRound) btnAutoRound.style.display = debugMode ? '' : 'none';
+  }
+  setAutoButtonVisibility(false);
+  fetch('/api/settings')
+    .then(function (res) { return res.json(); })
+    .then(function (data) { setAutoButtonVisibility(!!data.debug_mode); })
+    .catch(function () { setAutoButtonVisibility(false); });
+  document.addEventListener('debugModeChanged', function (e) {
+    setAutoButtonVisibility(!!(e.detail && e.detail.debug_mode));
+  });
+
+  function randomChoice(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function fillRoundWithRandomContracts() {
+    if (!tablesList) return;
+    var rows = tablesList.querySelectorAll('.deal-row');
+    var levels = [1, 2, 3, 4, 5, 6, 7];
+    var suits = ['C', 'D', 'H', 'S', 'NT'];
+    var modifiers = ['', 'x', 'xx'];
+    var declarers = ['N', 'S', 'E', 'W'];
+    var leadRanks = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+    var leadSuits = ['C', 'D', 'H', 'S'];
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var contract = randomChoice(levels) + '' + randomChoice(suits) + randomChoice(modifiers);
+      var declarer = randomChoice(declarers);
+      var lead = randomChoice(leadRanks) + randomChoice(leadSuits);
+      var tricks = Math.floor(Math.random() * 14);
+      var contractIn = row.querySelector('.deal-contract');
+      var declarerIn = row.querySelector('.deal-declarer');
+      var leadIn = row.querySelector('.deal-lead');
+      var tricksIn = row.querySelector('.deal-tricks');
+      if (contractIn) contractIn.value = contract;
+      if (declarerIn) declarerIn.value = declarer;
+      if (leadIn) leadIn.value = lead;
+      if (tricksIn) tricksIn.value = tricks;
+      scheduleHasUnsavedChanges = true;
+      validateDealRowOnBlur(row);
     }
+    updateTableCardCheckmarks();
+  }
+
+  if (btnAutoRound) {
+    btnAutoRound.addEventListener('click', function () {
+      fillRoundWithRandomContracts();
+    });
+  }
+
+  function buildTablesList() {
+    if (!schedule || !schedule.rounds[selectedRoundIndex] || !tablesList) return;
+    var rnd = schedule.rounds[selectedRoundIndex];
+    var deals = rnd.deals || [];
+    tablesList.innerHTML = '';
     rnd.tables.forEach(function (t) {
       const card = document.createElement('div');
       card.className = 'table-card-with-deals collapsed';
@@ -381,11 +528,34 @@
       });
       tablesList.appendChild(card);
     });
+    if (btnSaveRound) btnSaveRound.onclick = saveRoundResults;
+  }
+
+  function switchToEditMode() {
+    roundViewMode = 'edit';
+    if (saveRoundStatus) { saveRoundStatus.textContent = ''; saveRoundStatus.className = 'save-round-status'; }
+    buildTablesList();
+    setRoundPanel('edit');
+  }
+
+  function setRound(index) {
+    if (!schedule || !schedule.rounds.length) return;
+    selectedRoundIndex = Math.max(0, Math.min(index, schedule.rounds.length - 1));
+    const rnd = schedule.rounds[selectedRoundIndex];
+    roundDetailTitle.textContent = 'Runda ' + rnd.round_number;
+    if (roundDetailCaption) roundDetailCaption.textContent = schedule.rounds.length ? ' z ' + schedule.rounds.length : '';
     document.querySelectorAll('.round-pill').forEach(function (el, i) {
       el.classList.toggle('selected', i === selectedRoundIndex);
     });
-    if (btnSaveRound) {
-      btnSaveRound.onclick = saveRoundResults;
+    roundViewMode = roundAllDealsSaved(rnd) ? 'view' : 'edit';
+    if (roundViewMode === 'edit') {
+      if (saveRoundStatus) { saveRoundStatus.textContent = ''; saveRoundStatus.className = 'save-round-status'; }
+      buildTablesList();
+      setRoundPanel('edit');
+    } else {
+      setRankingLink();
+      setRoundPanel('view');
+      fetchAndRenderWyniki();
     }
   }
 
@@ -395,7 +565,7 @@
     schedule.rounds.forEach(function (rnd, i) {
       const pill = document.createElement('button');
       pill.type = 'button';
-      pill.className = 'round-pill' + (i === 0 ? ' selected' : '');
+      pill.className = 'round-pill' + (i === 0 ? ' selected' : '') + (roundAllDealsSaved(rnd) ? ' round-pill--complete' : '');
       pill.textContent = 'Runda ' + rnd.round_number;
       pill.addEventListener('click', function () {
         setRound(i);
@@ -405,6 +575,10 @@
   }
 
   linkEdit.href = '/tournament/' + encodeURIComponent(tourId);
+
+  if (btnRoundEdit) {
+    btnRoundEdit.addEventListener('click', function () { switchToEditMode(); });
+  }
 
   tablesList.addEventListener('input', function (e) {
     if (e.target && e.target.classList && e.target.classList.contains('deal-input')) scheduleHasUnsavedChanges = true;
@@ -490,13 +664,13 @@
     }
   });
 
-  fetch('/api/tournaments/' + encodeURIComponent(tourId) + '/schedule')
+  fetch('/api/tournaments/' + encodeURIComponent(tourId) + '/rounds')
     .then(function (res) {
       if (!res.ok) {
         if (res.status === 404) {
           loadError.textContent = 'Turniej nie znaleziony.';
         } else {
-          loadError.textContent = 'Błąd ładowania harmonogramu.';
+          loadError.textContent = 'Błąd ładowania rund.';
         }
         loadError.classList.remove('hidden');
         return null;
@@ -506,10 +680,10 @@
     .then(function (data) {
       if (!data) return;
       schedule = data;
-      tournamentTitle.textContent = data.name || 'Harmonogram';
-      scheduleMeta.textContent = 'Data: ' + (data.date || '');
+      tournamentTitle.textContent = data.name || 'Rundy';
+      roundsMeta.textContent = 'Data: ' + (data.date || '');
       renderRoundsList();
       setRound(0);
-      scheduleContent.classList.remove('hidden');
+      roundsContent.classList.remove('hidden');
     });
 })();

@@ -291,7 +291,140 @@
           "vulnerability": "Both"
         }
       ],
-      "results_by_table_deal": {}
+      "results_by_table_deal": {
+        "1,5": {
+          "round_id": 2,
+          "table_number": 1,
+          "deal_id": 5,
+          "ns_score": 350,
+          "ew_score": -350,
+          "contract": "1D",
+          "declarer": "E",
+          "opening_lead": "2S",
+          "tricks_taken": 0
+        },
+        "1,6": {
+          "round_id": 2,
+          "table_number": 1,
+          "deal_id": 6,
+          "ns_score": -2300,
+          "ew_score": 2300,
+          "contract": "6Dx",
+          "declarer": "N",
+          "opening_lead": "9C",
+          "tricks_taken": 4
+        },
+        "1,7": {
+          "round_id": 2,
+          "table_number": 1,
+          "deal_id": 7,
+          "ns_score": -200,
+          "ew_score": 200,
+          "contract": "2Cxx",
+          "declarer": "S",
+          "opening_lead": "2D",
+          "tricks_taken": 7
+        },
+        "1,8": {
+          "round_id": 2,
+          "table_number": 1,
+          "deal_id": 8,
+          "ns_score": 4000,
+          "ew_score": -4000,
+          "contract": "4Sxx",
+          "declarer": "E",
+          "opening_lead": "KH",
+          "tricks_taken": 3
+        },
+        "2,5": {
+          "round_id": 2,
+          "table_number": 2,
+          "deal_id": 5,
+          "ns_score": -400,
+          "ew_score": 400,
+          "contract": "3S",
+          "declarer": "N",
+          "opening_lead": "QS",
+          "tricks_taken": 1
+        },
+        "2,6": {
+          "round_id": 2,
+          "table_number": 2,
+          "deal_id": 6,
+          "ns_score": -200,
+          "ew_score": 200,
+          "contract": "5Sx",
+          "declarer": "N",
+          "opening_lead": "2C",
+          "tricks_taken": 10
+        },
+        "2,7": {
+          "round_id": 2,
+          "table_number": 2,
+          "deal_id": 7,
+          "ns_score": 500,
+          "ew_score": -500,
+          "contract": "1H",
+          "declarer": "W",
+          "opening_lead": "7S",
+          "tricks_taken": 2
+        },
+        "2,8": {
+          "round_id": 2,
+          "table_number": 2,
+          "deal_id": 8,
+          "ns_score": -700,
+          "ew_score": 700,
+          "contract": "6D",
+          "declarer": "N",
+          "opening_lead": "3S",
+          "tricks_taken": 5
+        },
+        "3,5": {
+          "round_id": 2,
+          "table_number": 3,
+          "deal_id": 5,
+          "ns_score": 200,
+          "ew_score": -200,
+          "contract": "6H",
+          "declarer": "E",
+          "opening_lead": "JC",
+          "tricks_taken": 8
+        },
+        "3,6": {
+          "round_id": 2,
+          "table_number": 3,
+          "deal_id": 6,
+          "ns_score": 2800,
+          "ew_score": -2800,
+          "contract": "4Cxx",
+          "declarer": "E",
+          "opening_lead": "6H",
+          "tricks_taken": 4
+        },
+        "3,7": {
+          "round_id": 2,
+          "table_number": 3,
+          "deal_id": 7,
+          "ns_score": 800,
+          "ew_score": -800,
+          "contract": "7H",
+          "declarer": "W",
+          "opening_lead": "3S",
+          "tricks_taken": 5
+        },
+        "3,8": {
+          "round_id": 2,
+          "table_number": 3,
+          "deal_id": 8,
+          "ns_score": -2800,
+          "ew_score": 2800,
+          "contract": "5Sxx",
+          "declarer": "N",
+          "opening_lead": "2H",
+          "tricks_taken": 6
+        }
+      }
     },
     {
       "id": 3,
