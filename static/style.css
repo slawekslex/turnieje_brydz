@@ -404,6 +404,14 @@ a.btn {
   margin-bottom: 0.75rem;
 }
 
+.in-progress-hint {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
 #cycles-container {
   margin-bottom: 0.75rem;
 }
@@ -530,6 +538,21 @@ a.btn {
   flex-wrap: wrap;
 }
 
+.form-row-rounds-deals {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.rounds-warning {
+  color: var(--danger, #dc2626);
+  font-weight: 500;
+}
+
+.rounds-warning.hidden {
+  display: none;
+}
+
 .rounds-scroll {
   overflow-x: auto;
   margin-bottom: 1.25rem;
@@ -542,6 +565,42 @@ a.btn {
   gap: 0.5rem;
   flex-wrap: nowrap;
   min-width: min-content;
+  align-items: center;
+}
+
+.round-pill-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.round-pill-remove {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.round-pill-remove:hover:not(:disabled) {
+  background: var(--danger-bg, rgba(220, 38, 38, 0.1));
+  color: var(--danger, #dc2626);
+  border-color: var(--danger, #dc2626);
+}
+
+.round-pill-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .round-pill {
@@ -614,8 +673,39 @@ a.btn {
   color: var(--text-muted);
 }
 
+.round-view-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.round-view-tab {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.875rem;
+  font-family: var(--font);
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition), border-color var(--transition);
+}
+
+.round-view-tab:hover {
+  color: var(--text);
+  background: var(--bg-muted);
+}
+
+.round-view-tab.active {
+  color: var(--accent);
+  background: var(--accent-muted);
+  border-color: var(--accent);
+}
+
 .round-view-wyniki {
-  margin-top: 1.25rem;
+  margin-top: 0.5rem;
 }
 
 .round-detail-title {
@@ -1020,6 +1110,44 @@ a.btn {
 .deal-results-table .deal-imp-cell {
   font-weight: 600;
   color: var(--text);
+}
+
+.ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  margin-bottom: 1rem;
+}
+
+.ranking-table th,
+.ranking-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.ranking-table th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--bg-elevated);
+}
+
+.ranking-table tbody tr:hover {
+  background: var(--bg-muted);
+}
+
+.ranking-table td:first-child {
+  font-weight: 600;
+  color: var(--text-muted);
+  width: 4rem;
+}
+
+.ranking-table td:last-child {
+  font-weight: 600;
+  text-align: right;
 }
 
 .btn-save-deal {

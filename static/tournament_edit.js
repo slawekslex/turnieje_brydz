@@ -11,9 +11,31 @@
   const teamsSectionHeader = document.getElementById('teams-section-header');
   const teamsSectionTitle = document.getElementById('teams-section-title');
   const teamsSectionToggle = document.getElementById('teams-section-toggle');
-  const cyclesContainer = document.getElementById('cycles-container');
-  const btnAddCycle = document.getElementById('btn-add-cycle');
-  const roundsTotalsValue = document.getElementById('rounds-totals-value');
+  const numRoundsInput = document.getElementById('tournament-num-rounds');
+  const dealsPerRoundInput = document.getElementById('tournament-deals-per-round');
+  const roundsWarning = document.getElementById('rounds-warning');
+  const roundsTotalsValue = document.getElementById('rounds-totals');
+  const inProgressHint = document.getElementById('in-progress-hint');
+
+  function setInProgressLock(hasResults) {
+    if (inProgressHint) inProgressHint.classList.toggle('hidden', !hasResults);
+    if (btnAddTeam) {
+      btnAddTeam.disabled = !!hasResults;
+      btnAddTeam.title = hasResults ? 'Nie można dodać drużyny, gdy turniej ma zapisane wyniki.' : '';
+    }
+    teamsContainer.querySelectorAll('.btn-remove-team').forEach(function (btn) {
+      btn.disabled = !!hasResults;
+      btn.title = hasResults ? 'Nie można usunąć drużyny, gdy turniej ma zapisane wyniki.' : '';
+    });
+    if (numRoundsInput) {
+      numRoundsInput.disabled = false;
+      numRoundsInput.title = hasResults ? 'Możesz zwiększyć liczbę rund lub zmniejszyć, jeśli usuwane rundy nie mają wyników.' : '';
+    }
+    if (dealsPerRoundInput) {
+      dealsPerRoundInput.disabled = !!hasResults;
+      dealsPerRoundInput.title = hasResults ? 'Nie można zmieniać liczby rozdań na rundę.' : '';
+    }
+  }
 
   function escapeHtml(s) {
     const div = document.createElement('div');
@@ -32,11 +54,11 @@
     block.querySelector('.btn-remove-team').addEventListener('click', function () {
       block.remove();
       updateTeamsSectionTitle();
-      updateRoundsTotals();
+      updateRoundsSummary();
     });
     teamsContainer.appendChild(block);
     updateTeamsSectionTitle();
-    updateRoundsTotals();
+    updateRoundsSummary();
   }
 
   function getTeamCount() {
@@ -64,58 +86,32 @@
     return teams;
   }
 
-  function collectCycles() {
-    const rows = cyclesContainer.querySelectorAll('.cycle-row');
-    const cycles = [];
-    rows.forEach(function (row) {
-      var input = row.querySelector('.cycle-deals-input');
-      var n = parseInt(input.value, 10);
-      cycles.push({ deals_per_round: isNaN(n) || n < 0 ? 0 : n });
-    });
-    return cycles;
-  }
-
-  function addCycleRow(dealsPerRound) {
-    var row = document.createElement('div');
-    row.className = 'cycle-row';
-    var idx = cyclesContainer.querySelectorAll('.cycle-row').length + 1;
-    row.innerHTML =
-      '<label>Cykl ' + idx + ':</label>' +
-      '<input type="number" class="cycle-deals-input" min="0" value="' + (dealsPerRound != null ? dealsPerRound : 2) + '" placeholder="0">' +
-      '<span class="cycle-deals-suffix">rozdania na rundę</span>' +
-      '<button type="button" class="btn-remove-cycle">Usuń</button>';
-    row.querySelector('.cycle-deals-input').addEventListener('input', updateRoundsTotals);
-    row.querySelector('.cycle-deals-input').addEventListener('change', updateRoundsTotals);
-    row.querySelector('.btn-remove-cycle').addEventListener('click', function () {
-      row.remove();
-      updateCycleLabels();
-      updateRoundsTotals();
-    });
-    cyclesContainer.appendChild(row);
-    updateRoundsTotals();
-  }
-
-  function updateCycleLabels() {
-    var rows = cyclesContainer.querySelectorAll('.cycle-row');
-    rows.forEach(function (row, i) {
-      row.querySelector('label').textContent = 'Cykl ' + (i + 1) + ':';
-    });
-  }
-
-  function updateRoundsTotals() {
+  function updateRoundsSummary() {
     var numTeams = getTeamCount();
-    var cycles = collectCycles();
-    if (numTeams < 2 || numTeams % 2 !== 0) {
-      roundsTotalsValue.textContent = '— rund, — rozdania (dodaj parzystą liczbę drużyn)';
-      return;
+    var numRounds = parseInt(numRoundsInput && numRoundsInput.value !== '' ? numRoundsInput.value : '0', 10);
+    var dealsPerRound = parseInt(dealsPerRoundInput && dealsPerRoundInput.value !== '' ? dealsPerRoundInput.value : '0', 10);
+    if (isNaN(numRounds)) numRounds = 0;
+    if (isNaN(dealsPerRound)) dealsPerRound = 0;
+    var roundsPerCycle = numTeams >= 2 ? numTeams - 1 : 0;
+
+    if (roundsWarning) {
+      if (numTeams >= 2 && roundsPerCycle > 0 && numRounds > 0 && numRounds % roundsPerCycle !== 0) {
+        roundsWarning.textContent = 'Liczba rund (' + numRounds + ') nie jest wielokrotnością (drużyny − 1) = ' + roundsPerCycle + '. Ostatnia seria round-robin będzie niepełna. Możesz zapisać.';
+        roundsWarning.classList.remove('hidden');
+      } else {
+        roundsWarning.textContent = '';
+        roundsWarning.classList.add('hidden');
+      }
     }
-    var roundsPerCycle = numTeams - 1;
-    var totalRounds = cycles.length * roundsPerCycle;
-    var totalDeals = 0;
-    cycles.forEach(function (c) {
-      totalDeals += roundsPerCycle * (c.deals_per_round || 0);
-    });
-    roundsTotalsValue.textContent = totalRounds + ' rund, ' + totalDeals + ' rozdania';
+
+    if (roundsTotalsValue) {
+      if (numTeams < 2 || numTeams % 2 !== 0) {
+        roundsTotalsValue.textContent = 'Dodaj parzystą liczbę drużyn (min. 2).';
+      } else {
+        var totalDeals = numRounds * dealsPerRound;
+        roundsTotalsValue.textContent = numRounds + ' rund, ' + totalDeals + ' rozdania';
+      }
+    }
   }
 
   teamsSectionToggle.textContent = '\u25BC';
@@ -130,10 +126,14 @@
     addTeamBlock({});
   });
 
-  btnAddCycle.addEventListener('click', function () {
-    addCycleRow(2);
-    updateCycleLabels();
-  });
+  if (numRoundsInput) {
+    numRoundsInput.addEventListener('input', updateRoundsSummary);
+    numRoundsInput.addEventListener('change', updateRoundsSummary);
+  }
+  if (dealsPerRoundInput) {
+    dealsPerRoundInput.addEventListener('input', updateRoundsSummary);
+    dealsPerRoundInput.addEventListener('change', updateRoundsSummary);
+  }
 
   function setAutoButtonVisibility(debugMode) {
     if (btnAutoTeams) btnAutoTeams.style.display = debugMode ? '' : 'none';
@@ -181,12 +181,24 @@
     const name = (document.getElementById('tournament-name').value || '').trim();
     const date = document.getElementById('tournament-date').value;
     const teams = collectTeams();
-    const cycles = collectCycles();
+    const numRounds = parseInt(numRoundsInput && numRoundsInput.value !== '' ? numRoundsInput.value : '0', 10);
+    const dealsPerRound = parseInt(dealsPerRoundInput && dealsPerRoundInput.value !== '' ? dealsPerRoundInput.value : '2', 10);
+    if (isNaN(numRounds) || numRounds < 0) {
+      formErrors.textContent = 'Podaj prawidłową liczbę rund (0 lub więcej).';
+      formErrors.classList.remove('hidden');
+      return;
+    }
 
     fetch('/api/tournaments/' + encodeURIComponent(tourId), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name, date: date, teams: teams, cycles: cycles })
+      body: JSON.stringify({
+        name: name,
+        date: date,
+        teams: teams,
+        num_rounds: isNaN(numRounds) ? 0 : Math.max(0, numRounds),
+        deals_per_round: isNaN(dealsPerRound) ? 2 : Math.max(0, dealsPerRound)
+      })
     })
       .then(function (res) { return res.json().then(function (data) { return { res: res, data: data }; }); })
       .then(function (result) {
@@ -231,14 +243,10 @@
         addTeamBlock({});
         addTeamBlock({});
       }
-      cyclesContainer.innerHTML = '';
-      var cycles = data.cycles || [{ deals_per_round: 2 }];
-      if (cycles.length === 0) cycles = [{ deals_per_round: 2 }];
-      cycles.forEach(function (c) {
-        addCycleRow(c.deals_per_round != null ? c.deals_per_round : 2);
-      });
-      updateCycleLabels();
-      updateRoundsTotals();
+      if (numRoundsInput) numRoundsInput.value = data.num_rounds != null ? String(data.num_rounds) : '3';
+      if (dealsPerRoundInput) dealsPerRoundInput.value = data.deals_per_round != null ? String(data.deals_per_round) : '2';
+      updateRoundsSummary();
+      setInProgressLock(!!data.has_results);
       form.classList.remove('hidden');
       updateTeamsSectionTitle();
     });

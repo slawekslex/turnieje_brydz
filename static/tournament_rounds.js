@@ -12,7 +12,8 @@
   const btnSaveRound = document.getElementById('btn-save-round');
   const btnAutoRound = document.getElementById('btn-auto-round');
   const saveRoundStatus = document.getElementById('save-round-status');
-  const linkRoundRanking = document.getElementById('link-round-ranking');
+  const tabWyniki = document.getElementById('tab-wyniki');
+  const tabRanking = document.getElementById('tab-ranking');
   const roundDetailEdit = document.getElementById('round-detail-edit');
   const roundDetailView = document.getElementById('round-detail-view');
   const roundDetailEditActions = document.getElementById('round-detail-edit-actions');
@@ -20,10 +21,11 @@
   const btnRoundEdit = document.getElementById('btn-round-edit');
   const roundViewWyniki = document.getElementById('round-view-wyniki');
 
-  let schedule = null;
+  let roundsData = null;
   let selectedRoundIndex = 0;
-  let scheduleHasUnsavedChanges = false;
+  let roundsHasUnsavedChanges = false;
   let roundViewMode = 'edit'; // 'edit' | 'view'
+  let viewTab = 'wyniki'; // 'wyniki' | 'ranking' (when in view mode)
 
   function escapeHtml(s) {
     const div = document.createElement('div');
@@ -52,6 +54,7 @@
     else if (valid === 'empty') rowEl.classList.add('deal-row--empty');
   }
 
+  /** Edit UI: show NS/EW and points (e.g. "NS +120"). */
   function formatScore(nsScore, ewScore, declarer) {
     var ns = parseInt(nsScore, 10) || 0;
     var ew = parseInt(ewScore, 10) || 0;
@@ -98,20 +101,15 @@
   }
 
   function updateRoundPillStates() {
-    if (!schedule || !roundsList) return;
+    if (!roundsData || !roundsList) return;
     var pills = roundsList.querySelectorAll('.round-pill');
-    schedule.rounds.forEach(function (rnd, i) {
+    roundsData.rounds.forEach(function (rnd, i) {
       var pill = pills[i];
       if (pill) pill.classList.toggle('round-pill--complete', roundAllDealsSaved(rnd));
     });
   }
 
-  function setRankingLink() {
-    if (!schedule || !schedule.rounds[selectedRoundIndex] || !linkRoundRanking) return;
-    var rnd = schedule.rounds[selectedRoundIndex];
-    linkRoundRanking.href = '/tournament/' + encodeURIComponent(tourId) + '/rounds/' + encodeURIComponent(String(rnd.round_id)) + '/ranking';
-  }
-
+  /** Wyniki table: signed number or "—". */
   function formatScoreSigned(n) {
     if (n === null || n === undefined) return '—';
     var x = parseInt(n, 10);
@@ -119,6 +117,39 @@
     return x > 0 ? '+' + x : String(x);
   }
 
+  /** Renders ranking table in #round-view-wyniki from API response. */
+  function renderRankingInline(data) {
+    if (!roundViewWyniki || !data) { roundViewWyniki.innerHTML = ''; return; }
+    if (data.error_message) {
+      roundViewWyniki.innerHTML = '<p class="errors" role="alert">' + escapeHtml(data.error_message) + '</p>' +
+        '<p class="muted">Zapisz wszystkie rozdania w rundach 1–' + escapeHtml(String(data.round_number || '')) + ', aby zobaczyć ranking.</p>';
+      return;
+    }
+    var ranking = data.ranking || [];
+    var html = '<table class="ranking-table"><thead><tr><th>Miejsce</th><th>Drużyna</th><th>IMP</th></tr></thead><tbody>';
+    for (var i = 0; i < ranking.length; i++) {
+      var r = ranking[i];
+      html += '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(r.team_name || '') + '</td><td>' + escapeHtml(String(r.total_imp != null ? r.total_imp : '')) + '</td></tr>';
+    }
+    html += '</tbody></table>';
+    roundViewWyniki.innerHTML = html;
+  }
+
+  function fetchAndRenderRanking() {
+    if (!roundsData || !roundsData.rounds[selectedRoundIndex] || !roundViewWyniki) return;
+    var roundId = roundsData.rounds[selectedRoundIndex].round_id;
+    roundViewWyniki.innerHTML = '<p class="muted">Ładowanie rankingu…</p>';
+    fetch('/api/tournaments/' + encodeURIComponent(tourId) + '/rounds/' + encodeURIComponent(String(roundId)) + '/ranking')
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        renderRankingInline(data || {});
+      })
+      .catch(function () {
+        roundViewWyniki.innerHTML = '<p class="errors">Błąd ładowania rankingu.</p>';
+      });
+  }
+
+  /** Builds deal-results-section + table per deal from API response. */
   function renderWynikiInline(data) {
     if (!roundViewWyniki || !data || !data.deals_with_tables) { roundViewWyniki.innerHTML = ''; return; }
     var html = '';
@@ -151,8 +182,8 @@
   }
 
   function fetchAndRenderWyniki() {
-    if (!schedule || !schedule.rounds[selectedRoundIndex] || !roundViewWyniki) return;
-    var roundId = schedule.rounds[selectedRoundIndex].round_id;
+    if (!roundsData || !roundsData.rounds[selectedRoundIndex] || !roundViewWyniki) return;
+    var roundId = roundsData.rounds[selectedRoundIndex].round_id;
     roundViewWyniki.innerHTML = '<p class="muted">Ładowanie wyników…</p>';
     fetch('/api/tournaments/' + encodeURIComponent(tourId) + '/rounds/' + encodeURIComponent(String(roundId)) + '/deal-results')
       .then(function (res) { return res.ok ? res.json() : null; })
@@ -164,17 +195,46 @@
       });
   }
 
+  function getViewParam() {
+    if (roundViewMode === 'edit') return 'edit';
+    return viewTab === 'ranking' ? 'standings' : 'results';
+  }
+
+  function updateRoundUrl() {
+    if (!roundsData || !roundsData.rounds[selectedRoundIndex] || !window.history.replaceState) return;
+    var rnd = roundsData.rounds[selectedRoundIndex];
+    var view = getViewParam();
+    var newUrl = window.location.pathname + '?round=' + encodeURIComponent(String(rnd.round_id)) + '&view=' + encodeURIComponent(view);
+    window.history.replaceState({ round: rnd.round_id, view: view }, '', newUrl);
+  }
+
   function setRoundPanel(mode) {
     var isEdit = mode === 'edit';
     if (roundDetailEdit) roundDetailEdit.classList.toggle('hidden', !isEdit);
     if (roundDetailView) roundDetailView.classList.toggle('hidden', isEdit);
     if (roundDetailEditActions) roundDetailEditActions.classList.toggle('hidden', !isEdit);
     if (roundDetailViewActions) roundDetailViewActions.classList.toggle('hidden', isEdit);
+    if (!isEdit) {
+      switchViewTab('wyniki');
+    }
+  }
+
+  function switchViewTab(view) {
+    if (!tabWyniki || !tabRanking) return;
+    viewTab = view === 'ranking' ? 'ranking' : 'wyniki';
+    var isWyniki = view === 'wyniki';
+    tabWyniki.classList.toggle('active', isWyniki);
+    tabWyniki.setAttribute('aria-selected', isWyniki);
+    tabRanking.classList.toggle('active', !isWyniki);
+    tabRanking.setAttribute('aria-selected', !isWyniki);
+    if (isWyniki) fetchAndRenderWyniki();
+    else fetchAndRenderRanking();
+    updateRoundUrl();
   }
 
   function updateTableCardCheckmarks() {
-    if (!schedule || !schedule.rounds[selectedRoundIndex] || !tablesList) return;
-    var rnd = schedule.rounds[selectedRoundIndex];
+    if (!roundsData || !roundsData.rounds[selectedRoundIndex] || !tablesList) return;
+    var rnd = roundsData.rounds[selectedRoundIndex];
     var deals = rnd.deals || [];
     var cards = tablesList.querySelectorAll('.table-card-with-deals');
     for (var i = 0; i < cards.length; i++) {
@@ -193,6 +253,40 @@
     var l = rowEl.querySelector('.deal-lead');
     var t = rowEl.querySelector('.deal-tricks');
     return [c, d, l, t].filter(Boolean);
+  }
+
+  /** Move focus to next or previous input in the deal table (same row or adjacent row, expanding card if needed). */
+  function focusAdjacentRowInput(row, direction) {
+    if (!tablesList || !row) return;
+    var allRows = Array.prototype.slice.call(tablesList.querySelectorAll('.deal-row'));
+    var rowIdx = allRows.indexOf(row);
+    var focusables = getRowFocusables(row);
+    var idx = focusables.indexOf(document.activeElement);
+    if (direction === 'prev') {
+      if (idx > 0) {
+        focusables[idx - 1].focus();
+        return;
+      }
+      if (rowIdx > 0) {
+        var prevRow = allRows[rowIdx - 1];
+        var prevCard = prevRow.closest('.table-card-with-deals');
+        if (prevCard && prevCard.classList.contains('collapsed')) prevCard.querySelector('.table-card').click();
+        var lastInput = getRowFocusables(prevRow)[3];
+        if (lastInput) setTimeout(function () { lastInput.focus(); }, 0);
+      }
+    } else {
+      if (idx >= 0 && idx < 3) {
+        focusables[idx + 1].focus();
+        return;
+      }
+      if (rowIdx >= 0 && rowIdx < allRows.length - 1) {
+        var nextRow = allRows[rowIdx + 1];
+        var nextCard = nextRow.closest('.table-card-with-deals');
+        if (nextCard && nextCard.classList.contains('collapsed')) nextCard.querySelector('.table-card').click();
+        var firstInput = getRowFocusables(nextRow)[0];
+        if (firstInput) setTimeout(function () { firstInput.focus(); }, 0);
+      }
+    }
   }
 
   /** Ask backend to validate row on blur; updates row state and score from response. */
@@ -227,8 +321,8 @@
           if (scoreEl) scoreEl.textContent = formatScore(data.ns_score, data.ew_score, decl ? decl.value : '');
           var tableNum = parseInt(rowEl.getAttribute('data-table-number'), 10);
           var dealId = rowEl.getAttribute('data-deal-id');
-          if (schedule && schedule.rounds[selectedRoundIndex] && dealId) {
-            var t = schedule.rounds[selectedRoundIndex].tables.find(function (x) { return x.table_number === tableNum; });
+          if (roundsData && roundsData.rounds[selectedRoundIndex] && dealId) {
+            var t = roundsData.rounds[selectedRoundIndex].tables.find(function (x) { return x.table_number === tableNum; });
             if (t && t.results) {
               var tricksVal = tricksRaw === '' ? null : parseInt(tricksRaw, 10);
               if (tricksVal !== null && isNaN(tricksVal)) tricksVal = null;
@@ -260,8 +354,8 @@
   }
 
   function saveRoundResults() {
-    if (!schedule || !schedule.rounds[selectedRoundIndex] || !btnSaveRound) return;
-    var roundId = schedule.rounds[selectedRoundIndex].round_id;
+    if (!roundsData || !roundsData.rounds[selectedRoundIndex] || !btnSaveRound) return;
+    var roundId = roundsData.rounds[selectedRoundIndex].round_id;
     var rows = tablesList.querySelectorAll('.deal-row');
     var resultsPayload = [];
     var rowMap = [];
@@ -338,8 +432,8 @@
           }
         });
         var allSavedByBackend = data.results.length > 0 && data.results.every(function (r) { return r && r.ok === true; });
-        if (schedule && schedule.rounds[selectedRoundIndex]) {
-          var rnd = schedule.rounds[selectedRoundIndex];
+        if (roundsData && roundsData.rounds[selectedRoundIndex]) {
+          var rnd = roundsData.rounds[selectedRoundIndex];
           for (var j = 0; j < resultsPayload.length && j < data.results.length; j++) {
             var r = data.results[j];
             if (!r || !r.ok) continue;
@@ -358,14 +452,12 @@
           }
           if (allSavedByBackend) rnd.all_deals_saved = true;
         }
-        scheduleHasUnsavedChanges = false;
+        roundsHasUnsavedChanges = false;
         updateTableCardCheckmarks();
         updateRoundPillStates();
         if (allSavedByBackend) {
           roundViewMode = 'view';
-          setRankingLink();
           setRoundPanel('view');
-          fetchAndRenderWyniki();
         }
         if (saveRoundStatus) {
           var savedCount = 0;
@@ -434,7 +526,7 @@
       if (declarerIn) declarerIn.value = declarer;
       if (leadIn) leadIn.value = lead;
       if (tricksIn) tricksIn.value = tricks;
-      scheduleHasUnsavedChanges = true;
+      roundsHasUnsavedChanges = true;
       validateDealRowOnBlur(row);
     }
     updateTableCardCheckmarks();
@@ -447,8 +539,8 @@
   }
 
   function buildTablesList() {
-    if (!schedule || !schedule.rounds[selectedRoundIndex] || !tablesList) return;
-    var rnd = schedule.rounds[selectedRoundIndex];
+    if (!roundsData || !roundsData.rounds[selectedRoundIndex] || !tablesList) return;
+    var rnd = roundsData.rounds[selectedRoundIndex];
     var deals = rnd.deals || [];
     tablesList.innerHTML = '';
     rnd.tables.forEach(function (t) {
@@ -536,14 +628,15 @@
     if (saveRoundStatus) { saveRoundStatus.textContent = ''; saveRoundStatus.className = 'save-round-status'; }
     buildTablesList();
     setRoundPanel('edit');
+    updateRoundUrl();
   }
 
   function setRound(index) {
-    if (!schedule || !schedule.rounds.length) return;
-    selectedRoundIndex = Math.max(0, Math.min(index, schedule.rounds.length - 1));
-    const rnd = schedule.rounds[selectedRoundIndex];
+    if (!roundsData || !roundsData.rounds.length) return;
+    selectedRoundIndex = Math.max(0, Math.min(index, roundsData.rounds.length - 1));
+    const rnd = roundsData.rounds[selectedRoundIndex];
     roundDetailTitle.textContent = 'Runda ' + rnd.round_number;
-    if (roundDetailCaption) roundDetailCaption.textContent = schedule.rounds.length ? ' z ' + schedule.rounds.length : '';
+    if (roundDetailCaption) roundDetailCaption.textContent = roundsData.rounds.length ? ' z ' + roundsData.rounds.length : '';
     document.querySelectorAll('.round-pill').forEach(function (el, i) {
       el.classList.toggle('selected', i === selectedRoundIndex);
     });
@@ -553,19 +646,22 @@
       buildTablesList();
       setRoundPanel('edit');
     } else {
-      setRankingLink();
       setRoundPanel('view');
-      fetchAndRenderWyniki();
     }
+    updateRoundUrl();
   }
 
+  if (tabWyniki) tabWyniki.addEventListener('click', function () { switchViewTab('wyniki'); });
+  if (tabRanking) tabRanking.addEventListener('click', function () { switchViewTab('ranking'); });
+
   function renderRoundsList() {
-    if (!schedule || !schedule.rounds.length) return;
+    if (!roundsData || !roundsList) return;
     roundsList.innerHTML = '';
-    schedule.rounds.forEach(function (rnd, i) {
+    if (!roundsData.rounds.length) return;
+    roundsData.rounds.forEach(function (rnd, i) {
       const pill = document.createElement('button');
       pill.type = 'button';
-      pill.className = 'round-pill' + (i === 0 ? ' selected' : '') + (roundAllDealsSaved(rnd) ? ' round-pill--complete' : '');
+      pill.className = 'round-pill' + (i === selectedRoundIndex ? ' selected' : '') + (roundAllDealsSaved(rnd) ? ' round-pill--complete' : '');
       pill.textContent = 'Runda ' + rnd.round_number;
       pill.addEventListener('click', function () {
         setRound(i);
@@ -581,19 +677,19 @@
   }
 
   tablesList.addEventListener('input', function (e) {
-    if (e.target && e.target.classList && e.target.classList.contains('deal-input')) scheduleHasUnsavedChanges = true;
+    if (e.target && e.target.classList && e.target.classList.contains('deal-input')) roundsHasUnsavedChanges = true;
   });
   tablesList.addEventListener('change', function (e) {
-    if (e.target && e.target.classList && e.target.classList.contains('deal-input')) scheduleHasUnsavedChanges = true;
+    if (e.target && e.target.classList && e.target.classList.contains('deal-input')) roundsHasUnsavedChanges = true;
   });
 
   window.addEventListener('beforeunload', function (e) {
-    if (scheduleHasUnsavedChanges) { e.preventDefault(); e.returnValue = ''; }
+    if (roundsHasUnsavedChanges) { e.preventDefault(); e.returnValue = ''; }
   });
 
   document.addEventListener('click', function (e) {
     var a = e.target.closest('a');
-    if (!a || !scheduleHasUnsavedChanges) return;
+    if (!a || !roundsHasUnsavedChanges) return;
     var href = (a.getAttribute('href') || '').trim();
     if (!href || href === '#' || href.indexOf('#') === 0) return;
     e.preventDefault();
@@ -606,61 +702,15 @@
     if (!tablesList.contains(e.target)) return;
     var row = e.target.closest('.deal-row');
     if (!row) return;
-    var input = e.target.closest('.deal-input');
-    if (!input || !row.contains(input)) return;
-    var focusables = getRowFocusables(row);
-    var idx = focusables.indexOf(input);
-    if (idx === -1) return;
-    var allRows = Array.prototype.slice.call(tablesList.querySelectorAll('.deal-row'));
-
+    if (!e.target.closest('.deal-input') || !row.contains(e.target)) return;
     if (e.key === 'Tab') {
       e.preventDefault();
-      if (e.shiftKey) {
-        if (idx > 0) {
-          focusables[idx - 1].focus();
-        } else {
-          var rowIdx = allRows.indexOf(row);
-          if (rowIdx > 0) {
-            var prevRow = allRows[rowIdx - 1];
-            var prevCard = prevRow.closest('.table-card-with-deals');
-            if (prevCard && prevCard.classList.contains('collapsed')) {
-              prevCard.querySelector('.table-card').click();
-            }
-            var lastInput = getRowFocusables(prevRow)[3];
-            if (lastInput) setTimeout(function () { lastInput.focus(); }, 0);
-          }
-        }
-      } else {
-        if (idx < 3) {
-          focusables[idx + 1].focus();
-        } else {
-          var rowIdx = allRows.indexOf(row);
-          var nextRow = allRows[rowIdx + 1];
-          if (nextRow) {
-            var nextCard = nextRow.closest('.table-card-with-deals');
-            if (nextCard && nextCard.classList.contains('collapsed')) {
-              nextCard.querySelector('.table-card').click();
-            }
-            var firstInput = getRowFocusables(nextRow)[0];
-            if (firstInput) setTimeout(function () { firstInput.focus(); }, 0);
-          }
-        }
-      }
+      focusAdjacentRowInput(row, e.shiftKey ? 'prev' : 'next');
       return;
     }
     if (e.key === 'Enter') {
       e.preventDefault();
-      var rowIdx = allRows.indexOf(row);
-      var nextRow = allRows[rowIdx + 1];
-      if (nextRow) {
-        var nextCard = nextRow.closest('.table-card-with-deals');
-        if (nextCard && nextCard.classList.contains('collapsed')) {
-          nextCard.querySelector('.table-card').click();
-        }
-        var firstInput = getRowFocusables(nextRow)[0];
-        if (firstInput) setTimeout(function () { firstInput.focus(); }, 0);
-      }
-      return;
+      focusAdjacentRowInput(row, 'next');
     }
   });
 
@@ -679,11 +729,30 @@
     })
     .then(function (data) {
       if (!data) return;
-      schedule = data;
+      roundsData = data;
       tournamentTitle.textContent = data.name || 'Rundy';
       roundsMeta.textContent = 'Data: ' + (data.date || '');
       renderRoundsList();
-      setRound(0);
+      var initialIndex = 0;
+      var roundParam = (function () {
+        var m = window.location.search.match(/[?&]round=(\d+)/);
+        return m ? parseInt(m[1], 10) : null;
+      })();
+      if (roundParam != null && data.rounds && data.rounds.length) {
+        var idx = data.rounds.findIndex(function (r) { return r.round_id === roundParam; });
+        if (idx >= 0) initialIndex = idx;
+      } else if (data.rounds && data.rounds.length) {
+        var firstIncomplete = data.rounds.findIndex(function (r) { return !roundAllDealsSaved(r); });
+        if (firstIncomplete >= 0) initialIndex = firstIncomplete;
+        else initialIndex = data.rounds.length - 1;
+      }
+      var viewParam = (function () {
+        var m = window.location.search.match(/[?&]view=(edit|results|standings)/);
+        return m ? m[1] : null;
+      })();
+      setRound(initialIndex);
+      if (viewParam === 'standings' && roundViewMode === 'view') switchViewTab('ranking');
+      else if ((viewParam === 'results' || viewParam === 'standings') && roundViewMode === 'edit') updateRoundUrl();
       roundsContent.classList.remove('hidden');
     });
 })();

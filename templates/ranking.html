@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ranking po rundzie {{ round_number }} – Turnieje brydżowe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="app-body">
+  <div class="container">
+    <header>
+      <h1>{{ tournament_name }}</h1>
+      <div class="header-actions">
+        <a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}?round={{ round_id }}" class="btn btn-secondary btn-sm">← Rundy</a>
+      </div>
+    </header>
+    <section class="card">
+      <h2>Ranking po rundzie {{ round_number }}</h2>
+      {% if error_message %}
+        <p class="errors" role="alert">{{ error_message }}</p>
+        <p class="muted">Zapisz wszystkie rozdania w rundach 1–{{ round_number }}, aby zobaczyć ranking.</p>
+        <p><a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}?round={{ round_id }}" class="btn btn-secondary">← Powrót do rundy</a></p>
+      {% else %}
+        <table class="ranking-table">
+          <thead>
+            <tr>
+              <th>Miejsce</th>
+              <th>Drużyna</th>
+              <th>IMP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in ranking %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ item.team_name }}</td>
+              <td>{{ item.total_imp }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p><a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}?round={{ round_id }}" class="btn btn-secondary">← Powrót do rundy</a></p>
+      {% endif %}
+    </section>
+  </div>
+</body>
+</html>

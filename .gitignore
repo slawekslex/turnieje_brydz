@@ -11,6 +11,7 @@ env/
 .pytest_cache/
 .coverage
 htmlcov/
+tests/tmp_tournament_rounds_data/
 
 # IDE
 .idea/
@@ -20,3 +21,7 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Tournament data (stored under data/)
+data/*
+!data/.gitkeep

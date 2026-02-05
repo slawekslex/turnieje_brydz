@@ -53,6 +53,9 @@
           </div>
         </div>
 
+        <p id="in-progress-hint" class="hint in-progress-hint hidden" role="status">
+          Turniej ma już zapisane wyniki. Możesz edytować nazwę, datę, nazwy drużyn i członków oraz liczbę rund (zwiększenie zawsze; zmniejszenie tylko gdy usuwane rundy nie mają wyników). Dodawanie/usuwanie drużyn oraz zmiana rozdań na rundę są zablokowane.
+        </p>
         <div class="form-group teams-section" id="teams-section">
           <div class="teams-section-header" id="teams-section-header">
             <span class="teams-section-title" id="teams-section-title">Drużyny</span>
@@ -70,13 +73,19 @@
 
         <div class="form-group rounds-structure-panel" id="rounds-structure-panel">
           <h3 class="rounds-structure-title">Struktura rund</h3>
-          <p class="hint">Każdy cykl to jeden round-robin (każdy z każdym). Określ liczbę rozdania na rundę w cyklu.</p>
-          <div id="cycles-container"></div>
-          <button type="button" id="btn-add-cycle" class="btn btn-secondary btn-sm">+ Dodaj cykl round-robin</button>
-          <div class="rounds-totals" id="rounds-totals">
-            <span class="rounds-totals-label">Razem:</span>
-            <span class="rounds-totals-value" id="rounds-totals-value">— rund, — rozdania</span>
+          <p class="hint rounds-structure-hint">Round-robin: każdy z każdym. Jedna seria to (liczba drużyn − 1) rund. Liczba rund musi być wielokrotnością tej wartości.</p>
+          <div class="form-row form-row-rounds-deals">
+            <div class="form-group">
+              <label for="tournament-num-rounds">Liczba rund</label>
+              <input type="number" id="tournament-num-rounds" name="num_rounds" min="0" value="3" placeholder="np. 3">
+            </div>
+            <div class="form-group">
+              <label for="tournament-deals-per-round">Rozdania na rundę</label>
+              <input type="number" id="tournament-deals-per-round" name="deals_per_round" min="0" value="2" placeholder="np. 2">
+            </div>
           </div>
+          <p id="rounds-warning" class="hint rounds-warning hidden" role="alert"></p>
+          <p id="rounds-totals" class="hint rounds-totals-value"></p>
         </div>
 
         <div class="form-actions">

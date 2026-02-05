@@ -80,10 +80,17 @@
 
 ---
 
-## 6. IMPLEMENTED (this pass)
+## 6. IMPLEMENTED
 
+### First pass
 - **Single round header:** One `<h2>` and caption; edit actions (Zapisz rundę, Auto, status) and view actions (Ranking, Edycja) are in two spans in the same header, toggled with the panel.
 - **setRoundPanel(mode):** Replaced `showEditMode()` / `showViewMode()` with one `setRoundPanel('edit' | 'view')` that toggles both content panels and both action spans.
-- **setViewModeLinks → setRankingLink:** Renamed and kept as small helper (single responsibility).
 - **Removed duplicate title/caption:** No more `round-detail-title-view` / `round-detail-caption-view`.
 - **Removed unused CSS:** `.schedule-page`, `.schedule-card`, `.schedule-meta`; `.round-complete-actions`, `.round-view-actions`. Replaced with `.round-detail-actions` for the header action spans.
+
+### Second pass (other improvements)
+- **Standalone wyniki page:** Removed `round_results.html`. Route `/tournament/<id>/rounds/<round_id>/results` now redirects to the rounds page with `?round=<round_id>`. Rounds page reads `?round=` on load and selects that round (so bookmarks/open links still work).
+- **schedule → roundsData:** Renamed everywhere; **scheduleHasUnsavedChanges → roundsHasUnsavedChanges**.
+- **setRankingLink inlined:** Removed the helper; the two call sites set `linkRoundRanking.href` directly.
+- **focusAdjacentRowInput(row, direction):** Extracted Tab/Enter logic into `focusAdjacentRowInput(row, 'next' | 'prev')`; keydown handler is now a short Tab/Enter branch.
+- **Comments:** Added one-line comments for `formatScore` (edit UI), `formatScoreSigned` (wyniki table), and `renderWynikiInline` (builds deal-results sections).

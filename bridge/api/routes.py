@@ -30,14 +30,16 @@ from bridge.services.generator import (
     assign_deals_to_rounds,
 )
 from bridge.storage import (
-    load_index,
+    ensure_data_dir,
+    ensure_tournament_dir,
+    get_tournament_data_path,
+    list_tournament_entries,
     load_settings,
     load_tournament,
     load_tournament_cycles,
-    save_index,
     save_settings,
     save_tournament,
-    ensure_data_dir,
+    tournament_folder_name,
 )
 
 bp = Blueprint("api", __name__, url_prefix="")
@@ -49,8 +51,31 @@ def _data_dir() -> Path:
     return Path(current_app.config["DATA_DIR"])
 
 
-def _tournament_path(tour_id: str) -> Path:
-    return _data_dir() / f"{tour_id}.json"
+def _tournament_path(tour_id: str) -> Path | None:
+    """Path to tournament data.json (data/<folder>/data.json). Returns None if not found."""
+    return get_tournament_data_path(_data_dir(), tour_id)
+
+
+def _cycles_from_num_rounds_and_deals(
+    num_teams: int, num_rounds: int, deals_per_round: int
+) -> list:
+    """
+    Build cycles list from total rounds and deals per round.
+    One full round-robin = num_teams - 1 rounds. If num_rounds is not divisible,
+    the last cycle is partial (use "rounds": k in that entry).
+    Returns [] when num_rounds is 0 (caller may then use default or empty rounds).
+    """
+    rounds_per_cycle = num_teams - 1 if num_teams >= 2 else 0
+    if rounds_per_cycle <= 0:
+        return [{"deals_per_round": max(0, deals_per_round)}] if num_rounds > 0 else []
+    if num_rounds <= 0:
+        return []
+    num_full = num_rounds // rounds_per_cycle
+    remainder = num_rounds % rounds_per_cycle
+    cycles = [{"deals_per_round": max(0, deals_per_round)}] * num_full
+    if remainder > 0:
+        cycles.append({"deals_per_round": max(0, deals_per_round), "rounds": remainder})
+    return cycles
 
 
 def _build_rounds_from_cycles(teams, cycles: list) -> list:
@@ -64,11 +89,17 @@ def _build_rounds_from_cycles(teams, cycles: list) -> list:
     existing_cycles: list = []  # list of List[Round] (structure only) for add_round_robin
     for c in cycles:
         deals_per_round = max(0, int(c.get("deals_per_round") or 0))
+        rounds_in_cycle = c.get("rounds")
+        if rounds_in_cycle is None:
+            rounds_in_cycle = rounds_per_cycle
+        else:
+            rounds_in_cycle = min(max(0, int(rounds_in_cycle)), rounds_per_cycle)
         schedule = add_round_robin(teams, existing_cycles, k=100)
         validate_round_robin(teams, schedule)
         existing_cycles.append(schedule)
         deal_seq = standard_16_board_deal_sequence(start_id=deal_id_start)
         cycle_rounds = assign_deals_to_rounds(schedule, deals_per_round, deal_seq)
+        cycle_rounds = cycle_rounds[:rounds_in_cycle]
         for rnd in cycle_rounds:
             all_rounds.append(
                 Round(
@@ -80,7 +111,7 @@ def _build_rounds_from_cycles(teams, cycles: list) -> list:
                 )
             )
             global_round_id += 1
-        deal_id_start += rounds_per_cycle * deals_per_round
+        deal_id_start += rounds_in_cycle * deals_per_round
     return all_rounds
 
 
@@ -93,7 +124,7 @@ def index():
 def tournament_edit_page(tour_id: str):
     """Serve the tournament edit page."""
     path = _tournament_path(tour_id)
-    if not path.exists():
+    if not path or not path.exists():
         return render_template("404.html"), 404
     return render_template("tournament_edit.html", tour_id=tour_id)
 
@@ -102,7 +133,7 @@ def tournament_edit_page(tour_id: str):
 def tournament_rounds_page(tour_id: str):
     """Serve the tournament rounds page (enter results, view results, standings)."""
     path = _tournament_path(tour_id)
-    if not path.exists():
+    if not path or not path.exists():
         return render_template("404.html"), 404
     return render_template("tournament_rounds.html", tour_id=tour_id)
 
@@ -167,7 +198,7 @@ def _round_results_view_data(tournament, round_id: int):
 def get_round_deal_results(tour_id: str, round_id: int):
     """Return deal-by-deal results with IMPs for a round (JSON for inline rendering)."""
     path = _tournament_path(tour_id)
-    if not path.exists():
+    if not path or not path.exists():
         return jsonify({"error": "Not found"}), 404
     tournament = load_tournament(path)
     rnd, deals_with_tables = _round_results_view_data(tournament, round_id)
@@ -187,7 +218,7 @@ def get_round_deal_results(tour_id: str, round_id: int):
 def round_results_page(tour_id: str, round_id: int):
     """Wyniki rozdań: read-only view of contracts and IMP scores per deal per table."""
     path = _tournament_path(tour_id)
-    if not path.exists():
+    if not path or not path.exists():
         return render_template("404.html"), 404
     tournament = load_tournament(path)
     rnd, deals_with_tables = _round_results_view_data(tournament, round_id)
@@ -207,7 +238,7 @@ def round_results_page(tour_id: str, round_id: int):
 def round_ranking_placeholder(tour_id: str, round_id: int):
     """Placeholder for round ranking page."""
     path = _tournament_path(tour_id)
-    if not path.exists():
+    if not path or not path.exists():
         return render_template("404.html"), 404
     return render_template(
         "placeholder.html",
@@ -239,7 +270,7 @@ def update_settings():
 @bp.route("/api/tournaments", methods=["GET"])
 def list_tournaments():
     """Return list of non-archived tournaments: [{ id, name, date }, ...]."""
-    entries = load_index(_data_dir())
+    entries = list_tournament_entries(_data_dir())
     active = [e for e in entries if not e.get("archived")]
     return jsonify(active)
 
@@ -248,7 +279,7 @@ def list_tournaments():
 def get_tournament(tour_id: str):
     """Return a single tournament for editing: { id, name, date, teams }."""
     path = _tournament_path(tour_id)
-    if not path.exists():
+    if not path or not path.exists():
         return jsonify({"error": "Not found"}), 404
     tournament = load_tournament(path)
     teams_data = [
@@ -273,7 +304,7 @@ def get_tournament(tour_id: str):
 def get_tournament_rounds(tour_id: str):
     """Return tournament rounds data: name, date, rounds with deals and tables (team names + results per deal)."""
     path = _tournament_path(tour_id)
-    if not path.exists():
+    if not path or not path.exists():
         return jsonify({"error": "Not found"}), 404
     tournament = load_tournament(path)
     team_by_id = {t.id: {"id": t.id, "name": t.name} for t in tournament.teams}
@@ -404,7 +435,7 @@ def save_round_results(tour_id: str):
     Returns 200 { "ok": true, "saved": N, "total": M, "results": [ { "ok": true, "ns_score", "ew_score" } | { "ok": false, "error", "field" }, ... ] } (one per request item).
     """
     path = _tournament_path(tour_id)
-    if not path.exists():
+    if not path or not path.exists():
         return jsonify({"error": "Not found"}), 404
     body = request.get_json(force=True, silent=True) or {}
     round_id = body.get("round_id")
@@ -553,16 +584,23 @@ def create_tournament():
     if errors:
         return jsonify({"ok": False, "errors": errors}), 400
 
-    cycles = body.get("cycles") or [{"deals_per_round": DEALS_PER_ROUND}]
-    rounds = _build_rounds_from_cycles(teams, cycles)
+    num_rounds_raw = body.get("num_rounds")
+    deals_per_round = max(0, int(body.get("deals_per_round") or DEALS_PER_ROUND))
+    if num_rounds_raw is not None:
+        num_rounds = max(0, int(num_rounds_raw))
+        cycles = _cycles_from_num_rounds_and_deals(len(teams), num_rounds, deals_per_round)
+        rounds = _build_rounds_from_cycles(teams, cycles) if cycles else []
+    else:
+        cycles = body.get("cycles") or [{"deals_per_round": DEALS_PER_ROUND}]
+        rounds = _build_rounds_from_cycles(teams, cycles)
 
     tournament = Tournament(name=name, date=tournament_date, teams=teams, rounds=rounds)
     tour_id = str(uuid.uuid4())
-    path = _data_dir() / f"{tour_id}.json"
-    save_tournament(tournament, path, cycles=cycles)
-    entries = load_index(_data_dir())
-    entries.append({"id": tour_id, "name": name, "date": date_str, "archived": False})
-    save_index(_data_dir(), entries)
+    data_dir = _data_dir()
+    folder = tournament_folder_name(name, date_str, tour_id, data_dir)
+    ensure_tournament_dir(data_dir, folder)
+    path = data_dir / folder / "data.json"
+    save_tournament(tournament, path, cycles=cycles, tour_id=tour_id)
 
     return jsonify({"ok": True, "id": tour_id, "name": name, "date": date_str})
 
@@ -571,15 +609,12 @@ def create_tournament():
 def archive_tournament(tour_id: str):
     """Mark a tournament as archived (excluded from main list)."""
     path = _tournament_path(tour_id)
-    if not path.exists():
+    if not path or not path.exists():
         return jsonify({"ok": False, "error": "Not found"}), 404
-    entries = load_index(_data_dir())
-    for i, e in enumerate(entries):
-        if e.get("id") == tour_id:
-            entries[i] = {**e, "archived": True}
-            save_index(_data_dir(), entries)
-            return jsonify({"ok": True})
-    return jsonify({"ok": False, "error": "Not found"}), 404
+    tournament = load_tournament(path)
+    cycles = load_tournament_cycles(path)
+    save_tournament(tournament, path, cycles=cycles, archived=True)
+    return jsonify({"ok": True})
 
 
 @bp.route("/api/tournaments/<tour_id>", methods=["PUT"])
@@ -589,7 +624,7 @@ def update_tournament(tour_id: str):
     Body: same as POST create (name, date, teams). Regenerates schedule.
     """
     path = _tournament_path(tour_id)
-    if not path.exists():
+    if not path or not path.exists():
         return jsonify({"ok": False, "errors": ["Turniej nie istnieje."]}), 404
 
     body = request.get_json(force=True, silent=True) or {}
@@ -639,16 +674,17 @@ def update_tournament(tour_id: str):
     if errors:
         return jsonify({"ok": False, "errors": errors}), 400
 
-    cycles = body.get("cycles") or [{"deals_per_round": DEALS_PER_ROUND}]
-    rounds = _build_rounds_from_cycles(teams, cycles)
+    num_rounds_raw = body.get("num_rounds")
+    deals_per_round = max(0, int(body.get("deals_per_round") or DEALS_PER_ROUND))
+    if num_rounds_raw is not None:
+        num_rounds = max(0, int(num_rounds_raw))
+        cycles = _cycles_from_num_rounds_and_deals(len(teams), num_rounds, deals_per_round)
+        rounds = _build_rounds_from_cycles(teams, cycles) if cycles else []
+    else:
+        cycles = body.get("cycles") or [{"deals_per_round": DEALS_PER_ROUND}]
+        rounds = _build_rounds_from_cycles(teams, cycles)
 
     tournament = Tournament(name=name, date=tournament_date, teams=teams, rounds=rounds)
     save_tournament(tournament, path, cycles=cycles)
-    entries = load_index(_data_dir())
-    for i, e in enumerate(entries):
-        if e.get("id") == tour_id:
-            entries[i] = {"id": tour_id, "name": name, "date": date_str, "archived": e.get("archived", False)}
-            break
-    save_index(_data_dir(), entries)
 
     return jsonify({"ok": True, "id": tour_id, "name": name, "date": date_str})

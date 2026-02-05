@@ -58,7 +58,6 @@
               <span id="save-round-status" class="save-round-status" aria-live="polite"></span>
             </span>
             <span id="round-detail-view-actions" class="round-detail-actions hidden">
-              <a href="#" id="link-round-ranking" class="btn btn-secondary btn-sm">Ranking</a>
               <button type="button" class="btn btn-primary btn-sm" id="btn-round-edit">Edycja</button>
             </span>
           </div>
@@ -66,10 +65,14 @@
           <div id="round-detail-edit" class="round-detail-mode">
             <div id="tables-list"></div>
           </div>
-          <!-- View mode: wyniki inline -->
+          <!-- View mode: wyniki inline or ranking -->
           <div id="round-detail-view" class="round-detail-mode hidden">
             <p class="round-view-message muted">Wszystkie rozdania zapisane.</p>
-            <div id="round-view-wyniki" class="round-view-wyniki"></div>
+            <div class="round-view-tabs" role="tablist">
+              <button type="button" class="round-view-tab active" id="tab-wyniki" role="tab" aria-selected="true" data-view="wyniki">Wyniki rozdań</button>
+              <button type="button" class="round-view-tab" id="tab-ranking" role="tab" aria-selected="false" data-view="ranking">Ranking</button>
+            </div>
+            <div id="round-view-wyniki" class="round-view-wyniki" role="tabpanel"></div>
           </div>
         </div>
       </div>
