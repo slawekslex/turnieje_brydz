@@ -14,18 +14,23 @@
   const saveRoundStatus = document.getElementById('save-round-status');
   const tabWyniki = document.getElementById('tab-wyniki');
   const tabRanking = document.getElementById('tab-ranking');
+  const tabHead2Head = document.getElementById('tab-head2head');
   const roundDetailEdit = document.getElementById('round-detail-edit');
   const roundDetailView = document.getElementById('round-detail-view');
   const roundDetailEditActions = document.getElementById('round-detail-edit-actions');
   const roundDetailViewActions = document.getElementById('round-detail-view-actions');
   const btnRoundEdit = document.getElementById('btn-round-edit');
   const roundViewWyniki = document.getElementById('round-view-wyniki');
+  const roundViewRankingActions = document.getElementById('round-view-ranking-actions');
+  const btnRankingPrint = document.getElementById('btn-ranking-print');
+  const btnRankingExport = document.getElementById('btn-ranking-export');
 
   let roundsData = null;
+  let lastRankingData = null;
   let selectedRoundIndex = 0;
   let roundsHasUnsavedChanges = false;
   let roundViewMode = 'edit'; // 'edit' | 'view'
-  let viewTab = 'wyniki'; // 'wyniki' | 'ranking' (when in view mode)
+  let viewTab = 'wyniki'; // 'wyniki' | 'ranking' | 'head2head' (when in view mode)
 
   function escapeHtml(s) {
     const div = document.createElement('div');
@@ -119,17 +124,31 @@
 
   /** Renders ranking table in #round-view-wyniki from API response. */
   function renderRankingInline(data) {
-    if (!roundViewWyniki || !data) { roundViewWyniki.innerHTML = ''; return; }
+    if (!roundViewWyniki || !data) { roundViewWyniki.innerHTML = ''; lastRankingData = null; return; }
     if (data.error_message) {
+      lastRankingData = null;
       roundViewWyniki.innerHTML = '<p class="errors" role="alert">' + escapeHtml(data.error_message) + '</p>' +
         '<p class="muted">Zapisz wszystkie rozdania w rundach 1–' + escapeHtml(String(data.round_number || '')) + ', aby zobaczyć ranking.</p>';
       return;
     }
+    lastRankingData = data;
     var ranking = data.ranking || [];
-    var html = '<table class="ranking-table"><thead><tr><th>Miejsce</th><th>Drużyna</th><th>IMP</th></tr></thead><tbody>';
+    var roundNumbers = data.round_numbers || [];
+    var html = '<table class="ranking-table"><thead><tr><th>Miejsce</th><th>Drużyna</th>';
+    for (var rn = 0; rn < roundNumbers.length; rn++) {
+      html += '<th>R' + roundNumbers[rn] + '</th>';
+    }
+    html += '<th class="ranking-total-col">Suma</th></tr></thead><tbody>';
     for (var i = 0; i < ranking.length; i++) {
       var r = ranking[i];
-      html += '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(r.team_name || '') + '</td><td>' + escapeHtml(String(r.total_imp != null ? r.total_imp : '')) + '</td></tr>';
+      html += '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(r.team_name || '') + '</td>';
+      var roundImps = r.round_imps || [];
+      for (var ri = 0; ri < roundNumbers.length; ri++) {
+        var imp = roundImps[ri];
+        var val = imp != null ? (imp > 0 ? '+' + imp : String(imp)) : '—';
+        html += '<td>' + escapeHtml(String(val)) + '</td>';
+      }
+      html += '<td class="ranking-total-cell">' + escapeHtml(formatScoreSigned(r.total_imp)) + '</td></tr>';
     }
     html += '</tbody></table>';
     roundViewWyniki.innerHTML = html;
@@ -138,6 +157,7 @@
   function fetchAndRenderRanking() {
     if (!roundsData || !roundsData.rounds[selectedRoundIndex] || !roundViewWyniki) return;
     var roundId = roundsData.rounds[selectedRoundIndex].round_id;
+    lastRankingData = null;
     roundViewWyniki.innerHTML = '<p class="muted">Ładowanie rankingu…</p>';
     fetch('/api/tournaments/' + encodeURIComponent(tourId) + '/rounds/' + encodeURIComponent(String(roundId)) + '/ranking')
       .then(function (res) { return res.ok ? res.json() : null; })
@@ -145,7 +165,141 @@
         renderRankingInline(data || {});
       })
       .catch(function () {
+        lastRankingData = null;
         roundViewWyniki.innerHTML = '<p class="errors">Błąd ładowania rankingu.</p>';
+      });
+  }
+
+  function showOrHideRankingActions() {
+    if (!roundViewRankingActions) return;
+    var onRanking = roundViewMode === 'view' && viewTab === 'ranking';
+    roundViewRankingActions.classList.toggle('hidden', !onRanking);
+    roundViewRankingActions.setAttribute('aria-hidden', onRanking ? 'false' : 'true');
+  }
+
+  function rankingPrint() {
+    window.print();
+  }
+
+  /** Build CSV string from lastRankingData; fields escaped for CSV. */
+  function buildRankingCsv() {
+    if (!lastRankingData || !lastRankingData.ranking || !lastRankingData.ranking.length) return null;
+    var ranking = lastRankingData.ranking;
+    var roundNumbers = lastRankingData.round_numbers || [];
+    function escapeCsv(val) {
+      var s = String(val == null ? '' : val);
+      if (s.indexOf('"') >= 0 || s.indexOf(',') >= 0 || s.indexOf('\n') >= 0 || s.indexOf('\r') >= 0) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    }
+    var headers = ['Miejsce', 'Drużyna'];
+    for (var rn = 0; rn < roundNumbers.length; rn++) headers.push('R' + roundNumbers[rn]);
+    headers.push('Suma');
+    var rows = [headers.map(escapeCsv).join(',')];
+    for (var i = 0; i < ranking.length; i++) {
+      var r = ranking[i];
+      var row = [i + 1, r.team_name || ''];
+      var roundImps = r.round_imps || [];
+      for (var ri = 0; ri < roundNumbers.length; ri++) {
+        var imp = roundImps[ri];
+        row.push(imp != null ? imp : '');
+      }
+      row.push(r.total_imp != null ? r.total_imp : '');
+      rows.push(row.map(escapeCsv).join(','));
+    }
+    return rows.join('\r\n');
+  }
+
+  function rankingExportCsv() {
+    var csv = buildRankingCsv();
+    if (!csv) return;
+    var roundNum = lastRankingData && lastRankingData.round_number != null ? lastRankingData.round_number : (roundsData && roundsData.rounds[selectedRoundIndex] ? roundsData.rounds[selectedRoundIndex].round_number : '');
+    var filename = 'ranking-runda-' + roundNum + '.csv';
+    var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Heatmap cell background from IMP value; maxAbs is max of |imp| for scale. */
+  function head2headCellStyle(imp, maxAbs) {
+    if (imp === 0 || maxAbs <= 0) return 'background: var(--h2h-bg-zero, #f1f5f9);';
+    var intensity = Math.min(1, Math.abs(imp) / maxAbs);
+    var r, g, b;
+    if (imp < 0) {
+      r = 255;
+      g = Math.round(255 * (1 - intensity));
+      b = Math.round(255 * (1 - intensity));
+    } else {
+      r = Math.round(255 * (1 - intensity));
+      g = 255;
+      b = Math.round(255 * (1 - intensity));
+    }
+    return 'background: rgb(' + r + ',' + g + ',' + b + ');';
+  }
+
+  function renderHead2HeadInline(data) {
+    if (!roundViewWyniki || !data) { roundViewWyniki.innerHTML = ''; return; }
+    if (data.error_message) {
+      roundViewWyniki.innerHTML = '<p class="errors" role="alert">' + escapeHtml(data.error_message) + '</p>' +
+        '<p class="muted">Zapisz wszystkie rozdania w rundach 1–' + escapeHtml(String(data.round_number || '')) + ', aby zobaczyć bezpośrednie starcia.</p>';
+      return;
+    }
+    var teamNames = data.team_names || [];
+    var matrix = data.matrix || [];
+    if (!teamNames.length) {
+      roundViewWyniki.innerHTML = '<p class="muted">Brak danych bezpośrednich starć.</p>';
+      return;
+    }
+    var maxAbs = 0;
+    for (var i = 0; i < matrix.length; i++) {
+      for (var j = 0; j < (matrix[i] || []).length; j++) {
+        if (i !== j) {
+          var v = Math.abs(matrix[i][j]);
+          if (v > maxAbs) maxAbs = v;
+        }
+      }
+    }
+    if (maxAbs < 1) maxAbs = 1;
+    var html = '<div class="head2head-wrap"><p class="head2head-caption muted">IMP zdobyte przeciwko danej drużynie (rundy 1–' + escapeHtml(String(data.round_number || '')) + ')</p>';
+    html += '<div class="head2head-scroll"><table class="head2head-table" role="grid">';
+    html += '<thead><tr><th class="head2head-corner"></th>';
+    for (var c = 0; c < teamNames.length; c++) {
+      html += '<th class="head2head-col-header" scope="col" title="' + escapeHtml(teamNames[c]) + '">' + escapeHtml(teamNames[c]) + '</th>';
+    }
+    html += '</tr></thead><tbody>';
+    for (var i = 0; i < teamNames.length; i++) {
+      html += '<tr><th class="head2head-row-header" scope="row" title="' + escapeHtml(teamNames[i]) + '">' + escapeHtml(teamNames[i]) + '</th>';
+      for (var j = 0; j < teamNames.length; j++) {
+        var imp = (matrix[i] && matrix[i][j] != null) ? matrix[i][j] : null;
+        var cellClass = 'head2head-cell';
+        if (i === j) cellClass += ' head2head-cell--diag';
+        var style = i === j ? '' : (imp != null ? head2headCellStyle(imp, maxAbs) : '');
+        var text = i === j ? '—' : (imp != null ? (imp > 0 ? '+' + imp : String(imp)) : '—');
+        html += '<td class="' + cellClass + '" style="' + style + '" data-imp="' + (imp != null ? imp : '') + '">' + escapeHtml(text) + '</td>';
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    html += '<div class="head2head-legend"><span class="head2head-legend-item head2head-legend--neg">← strata IMP</span><span class="head2head-legend-item head2head-legend--zero">0</span><span class="head2head-legend-item head2head-legend--pos">zysk IMP →</span></div></div>';
+    roundViewWyniki.innerHTML = html;
+  }
+
+  function fetchAndRenderHead2Head() {
+    if (!roundsData || !roundsData.rounds[selectedRoundIndex] || !roundViewWyniki) return;
+    var roundId = roundsData.rounds[selectedRoundIndex].round_id;
+    roundViewWyniki.innerHTML = '<p class="muted">Ładowanie starć bezpośrednich…</p>';
+    fetch('/api/tournaments/' + encodeURIComponent(tourId) + '/rounds/' + encodeURIComponent(String(roundId)) + '/head-to-head')
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        renderHead2HeadInline(data || {});
+      })
+      .catch(function () {
+        roundViewWyniki.innerHTML = '<p class="errors">Błąd ładowania starć bezpośrednich.</p>';
       });
   }
 
@@ -197,7 +351,9 @@
 
   function getViewParam() {
     if (roundViewMode === 'edit') return 'edit';
-    return viewTab === 'ranking' ? 'standings' : 'results';
+    if (viewTab === 'ranking') return 'standings';
+    if (viewTab === 'head2head') return 'head2head';
+    return 'results';
   }
 
   function updateRoundUrl() {
@@ -215,20 +371,35 @@
     if (roundDetailEditActions) roundDetailEditActions.classList.toggle('hidden', !isEdit);
     if (roundDetailViewActions) roundDetailViewActions.classList.toggle('hidden', isEdit);
     if (!isEdit) {
-      switchViewTab('wyniki');
+      // Keep current view tab and refresh content for selected round
+      if (tabWyniki && tabRanking && tabHead2Head) {
+        tabWyniki.classList.toggle('active', viewTab === 'wyniki');
+        tabWyniki.setAttribute('aria-selected', viewTab === 'wyniki');
+        tabRanking.classList.toggle('active', viewTab === 'ranking');
+        tabRanking.setAttribute('aria-selected', viewTab === 'ranking');
+        tabHead2Head.classList.toggle('active', viewTab === 'head2head');
+        tabHead2Head.setAttribute('aria-selected', viewTab === 'head2head');
+      }
+      showOrHideRankingActions();
+      if (viewTab === 'wyniki') fetchAndRenderWyniki();
+      else if (viewTab === 'ranking') fetchAndRenderRanking();
+      else if (viewTab === 'head2head') fetchAndRenderHead2Head();
     }
   }
 
   function switchViewTab(view) {
-    if (!tabWyniki || !tabRanking) return;
-    viewTab = view === 'ranking' ? 'ranking' : 'wyniki';
-    var isWyniki = view === 'wyniki';
-    tabWyniki.classList.toggle('active', isWyniki);
-    tabWyniki.setAttribute('aria-selected', isWyniki);
-    tabRanking.classList.toggle('active', !isWyniki);
-    tabRanking.setAttribute('aria-selected', !isWyniki);
-    if (isWyniki) fetchAndRenderWyniki();
-    else fetchAndRenderRanking();
+    if (!tabWyniki || !tabRanking || !tabHead2Head) return;
+    viewTab = view === 'ranking' ? 'ranking' : view === 'head2head' ? 'head2head' : 'wyniki';
+    tabWyniki.classList.toggle('active', viewTab === 'wyniki');
+    tabWyniki.setAttribute('aria-selected', viewTab === 'wyniki');
+    tabRanking.classList.toggle('active', viewTab === 'ranking');
+    tabRanking.setAttribute('aria-selected', viewTab === 'ranking');
+    tabHead2Head.classList.toggle('active', viewTab === 'head2head');
+    tabHead2Head.setAttribute('aria-selected', viewTab === 'head2head');
+    showOrHideRankingActions();
+    if (viewTab === 'wyniki') fetchAndRenderWyniki();
+    else if (viewTab === 'ranking') fetchAndRenderRanking();
+    else if (viewTab === 'head2head') fetchAndRenderHead2Head();
     updateRoundUrl();
   }
 
@@ -653,6 +824,9 @@
 
   if (tabWyniki) tabWyniki.addEventListener('click', function () { switchViewTab('wyniki'); });
   if (tabRanking) tabRanking.addEventListener('click', function () { switchViewTab('ranking'); });
+  if (tabHead2Head) tabHead2Head.addEventListener('click', function () { switchViewTab('head2head'); });
+  if (btnRankingPrint) btnRankingPrint.addEventListener('click', rankingPrint);
+  if (btnRankingExport) btnRankingExport.addEventListener('click', rankingExportCsv);
 
   function renderRoundsList() {
     if (!roundsData || !roundsList) return;
@@ -747,11 +921,12 @@
         else initialIndex = data.rounds.length - 1;
       }
       var viewParam = (function () {
-        var m = window.location.search.match(/[?&]view=(edit|results|standings)/);
+        var m = window.location.search.match(/[?&]view=(edit|results|standings|head2head)/);
         return m ? m[1] : null;
       })();
       setRound(initialIndex);
       if (viewParam === 'standings' && roundViewMode === 'view') switchViewTab('ranking');
+      else if (viewParam === 'head2head' && roundViewMode === 'view') switchViewTab('head2head');
       else if ((viewParam === 'results' || viewParam === 'standings') && roundViewMode === 'edit') updateRoundUrl();
       roundsContent.classList.remove('hidden');
     });

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pełny harmonogram – {{ tournament_name }} – Turnieje brydżowe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .schedule-page .schedule-intro { margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.95rem; }
+    .schedule-round { margin-bottom: 2rem; break-inside: avoid; }
+    .schedule-round:last-child { margin-bottom: 0; }
+    .schedule-round h2 { font-size: 1.1rem; margin: 0 0 0.75rem; font-weight: 600; }
+    .schedule-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    .schedule-table th,
+    .schedule-table td { padding: 0.5rem 0.75rem; text-align: left; border: 1px solid var(--border-strong); }
+    .schedule-table th { background: var(--bg-muted); font-weight: 600; }
+    .schedule-table tbody tr:nth-child(even) { background: var(--bg-elevated); }
+    .schedule-table .col-table { width: 5rem; }
+    .schedule-table .col-ns,
+    .schedule-table .col-ew { min-width: 10rem; }
+    @media print {
+      .no-print { display: none !important; }
+      body.schedule-page { padding: 0.5in; font-size: 11pt; background: #fff; }
+      .schedule-page .container { max-width: none; }
+      .schedule-round { margin-bottom: 1.5rem; page-break-inside: avoid; }
+      .schedule-round h2 { font-size: 12pt; margin-bottom: 0.5rem; }
+      .schedule-table { font-size: 10pt; }
+      .schedule-table th,
+      .schedule-table td { padding: 0.35rem 0.5rem; }
+      .schedule-print-title { font-size: 14pt; margin-bottom: 0.25rem; }
+      .schedule-print-date { font-size: 10pt; color: #555; margin-bottom: 1rem; }
+    }
+  </style>
+</head>
+<body class="app-body schedule-page">
+  <div class="container">
+    <header>
+      <h1 class="schedule-print-title">{{ tournament_name }}</h1>
+      <p class="schedule-print-date muted" aria-hidden="true">{{ tournament_date }}</p>
+      <div class="header-actions no-print">
+        <button type="button" id="btn-print-schedule" class="btn btn-primary btn-sm">Drukuj</button>
+        <a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}" class="btn btn-secondary btn-sm">← Rundy</a>
+      </div>
+    </header>
+
+    <p class="schedule-intro no-print">Pełny harmonogram: dla każdej rundy i każdego stołu – drużyna NS (północ–południe) i EW (wschód–zachód).</p>
+
+    <section class="schedule-content">
+      {% for round in schedule %}
+      <div class="schedule-round">
+        <h2>Runda {{ round.round_number }}</h2>
+        <table class="schedule-table" role="grid">
+          <thead>
+            <tr>
+              <th class="col-table" scope="col">Stół</th>
+              <th class="col-ns" scope="col">NS (północ–południe)</th>
+              <th class="col-ew" scope="col">EW (wschód–zachód)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in round.tables %}
+            <tr>
+              <td class="col-table">{{ t.table_number }}</td>
+              <td class="col-ns">{{ t.ns_name }}</td>
+              <td class="col-ew">{{ t.ew_name }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endfor %}
+    </section>
+  </div>
+  <script>
+    document.getElementById('btn-print-schedule').addEventListener('click', function () {
+      window.print();
+    });
+  </script>
+</body>
+</html>

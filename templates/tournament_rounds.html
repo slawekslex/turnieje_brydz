@@ -33,6 +33,7 @@
     <header>
       <h1 id="tournament-title">Rundy</h1>
       <div class="header-actions">
+        <a href="{{ url_for('api.tournament_schedule_page', tour_id=tour_id) }}" class="btn btn-secondary btn-sm">Pełny harmonogram</a>
         <a href="#" id="link-edit" class="btn btn-secondary btn-sm">Edycja</a>
         <a href="{{ url_for('api.index') }}" class="btn btn-secondary btn-sm">← Lista turniejów</a>
       </div>
@@ -71,6 +72,11 @@
             <div class="round-view-tabs" role="tablist">
               <button type="button" class="round-view-tab active" id="tab-wyniki" role="tab" aria-selected="true" data-view="wyniki">Wyniki rozdań</button>
               <button type="button" class="round-view-tab" id="tab-ranking" role="tab" aria-selected="false" data-view="ranking">Ranking</button>
+              <button type="button" class="round-view-tab" id="tab-head2head" role="tab" aria-selected="false" data-view="head2head">Bezpośrednio</button>
+            </div>
+            <div id="round-view-ranking-actions" class="round-view-ranking-actions hidden" aria-hidden="true">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-ranking-print">Drukuj</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-ranking-export">Eksport CSV</button>
             </div>
             <div id="round-view-wyniki" class="round-view-wyniki" role="tabpanel"></div>
           </div>

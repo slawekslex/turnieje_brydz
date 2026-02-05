@@ -704,6 +704,17 @@ a.btn {
   border-color: var(--accent);
 }
 
+.round-view-ranking-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  align-items: center;
+}
+
+.round-view-ranking-actions.hidden {
+  display: none;
+}
+
 .round-view-wyniki {
   margin-top: 0.5rem;
 }
@@ -1145,9 +1156,159 @@ a.btn {
   width: 4rem;
 }
 
-.ranking-table td:last-child {
-  font-weight: 600;
+.ranking-table th.ranking-total-col,
+.ranking-table td.ranking-total-cell {
+  font-weight: 700;
   text-align: right;
+  background: var(--bg-elevated);
+  border-left: 2px solid var(--border);
+  padding-left: 1rem;
+  min-width: 4.5rem;
+}
+
+.ranking-table th.ranking-total-col {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+
+.ranking-table td.ranking-total-cell {
+  font-size: 1.0625rem;
+  color: var(--text);
+}
+
+.ranking-table td:not(.ranking-total-cell) {
+  text-align: right;
+}
+
+@media print {
+  .rounds-page .settings-gear-wrap,
+  .rounds-page .header-actions,
+  .rounds-page .round-detail-edit-actions,
+  .rounds-page .round-detail-view-actions,
+  .rounds-page .round-view-tabs,
+  .rounds-page .round-view-ranking-actions,
+  .rounds-page .rounds-scroll,
+  .rounds-page .round-pill {
+    display: none !important;
+  }
+  .rounds-page .round-detail-view .round-view-wyniki .ranking-table {
+    margin-top: 0;
+  }
+}
+
+/* Head-to-head heatmap (Bezpośrednio) */
+.head2head-wrap {
+  margin-top: 0.5rem;
+}
+.head2head-caption {
+  font-size: 0.875rem;
+  margin: 0 0 0.75rem;
+}
+.head2head-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  margin-bottom: 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.head2head-table {
+  width: 100%;
+  min-width: 320px;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.head2head-table th,
+.head2head-table td {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  text-align: center;
+  white-space: nowrap;
+}
+.head2head-table thead th {
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg-elevated);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.head2head-corner {
+  min-width: 2.5rem;
+  background: var(--bg-muted) !important;
+  border-right: 1px solid var(--border-strong);
+}
+.head2head-col-header {
+  max-width: 6rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.75rem;
+  writing-mode: horizontal-tb;
+  min-width: 3rem;
+}
+.head2head-row-header {
+  text-align: left;
+  font-weight: 600;
+  background: var(--bg-elevated);
+  max-width: 7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  border-right: 1px solid var(--border-strong);
+}
+.head2head-cell {
+  font-weight: 500;
+  min-width: 2.5rem;
+  transition: filter var(--transition);
+}
+.head2head-cell:hover {
+  filter: brightness(0.95);
+}
+.head2head-cell--diag {
+  background: var(--bg-muted) !important;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+.head2head-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.head2head-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.head2head-legend--neg::before {
+  content: "";
+  display: inline-block;
+  width: 1rem;
+  height: 0.75rem;
+  border-radius: 2px;
+  background: rgb(255, 200, 200);
+}
+.head2head-legend--zero::before {
+  content: "";
+  display: inline-block;
+  width: 1rem;
+  height: 0.75rem;
+  border-radius: 2px;
+  background: var(--bg-muted);
+}
+.head2head-legend--pos::before {
+  content: "";
+  display: inline-block;
+  width: 1rem;
+  height: 0.75rem;
+  border-radius: 2px;
+  background: rgb(200, 255, 200);
 }
 
 .btn-save-deal {

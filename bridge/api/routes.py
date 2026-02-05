@@ -16,7 +16,7 @@ from bridge.models.contract import (
 from bridge.scoring import compute_score
 from bridge.models.round_models import Result
 from bridge.models.tournament import Tournament
-from bridge.services.round_results import round_results_view_data
+from bridge.services.round_results import round_head_to_head_data, round_ranking_data, round_results_view_data
 from bridge.services.tournament_service import parse_tournament_payload
 from bridge.storage import (
     ensure_data_dir,
@@ -64,6 +64,37 @@ def tournament_rounds_page(tour_id: str):
     if not path or not path.exists():
         return render_template("404.html"), 404
     return render_template("tournament_rounds.html", tour_id=tour_id)
+
+
+@bp.route("/tournament/<tour_id>/schedule")
+def tournament_schedule_page(tour_id: str):
+    path = _tournament_path(tour_id)
+    if not path or not path.exists():
+        return render_template("404.html"), 404
+    tournament = load_tournament(path)
+    team_by_id = {t.id: t.name for t in tournament.teams}
+    schedule = []
+    for rnd in tournament.rounds:
+        tables = []
+        for tbl in sorted(rnd.tables, key=lambda x: x.table_number):
+            ns_name = team_by_id.get(tbl.ns_team_id, "?")
+            ew_name = team_by_id.get(tbl.ew_team_id, "?")
+            tables.append({
+                "table_number": tbl.table_number,
+                "ns_name": ns_name,
+                "ew_name": ew_name,
+            })
+        schedule.append({
+            "round_number": rnd.round_number,
+            "tables": tables,
+        })
+    return render_template(
+        "tournament_schedule.html",
+        tour_id=tour_id,
+        tournament_name=tournament.name,
+        tournament_date=tournament.date.isoformat(),
+        schedule=schedule,
+    )
 
 
 @bp.route("/tournament/<tour_id>/rounds/<int:round_id>/ranking")
@@ -198,6 +229,48 @@ def get_round_deal_results(tour_id: str, round_id: int):
         for item in deals_with_tables
     ]
     return jsonify({"deals_with_tables": out})
+
+
+@bp.route("/api/tournaments/<tour_id>/rounds/<int:round_id>/ranking", methods=["GET"])
+def get_round_ranking(tour_id: str, round_id: int):
+    """Return cumulative IMP ranking for the round. Requires all deal results to be saved."""
+    path = _tournament_path(tour_id)
+    if not path or not path.exists():
+        return jsonify({"error": "Not found"}), 404
+    tournament = load_tournament(path)
+    rnd, ranking, round_numbers, error_message = round_ranking_data(tournament, round_id)
+    if not rnd:
+        return jsonify({"error": "Round not found"}), 404
+    payload = {"round_number": rnd.round_number}
+    if error_message:
+        payload["error_message"] = error_message
+        payload["ranking"] = []
+        payload["round_numbers"] = []
+    else:
+        payload["ranking"] = ranking
+        payload["round_numbers"] = round_numbers or []
+    return jsonify(payload)
+
+
+@bp.route("/api/tournaments/<tour_id>/rounds/<int:round_id>/head-to-head", methods=["GET"])
+def get_round_head_to_head(tour_id: str, round_id: int):
+    """Return head-to-head IMP matrix: IMP each team scored vs each opponent (cumulative up to round)."""
+    path = _tournament_path(tour_id)
+    if not path or not path.exists():
+        return jsonify({"error": "Not found"}), 404
+    tournament = load_tournament(path)
+    rnd, error_message, team_names, matrix = round_head_to_head_data(tournament, round_id)
+    if not rnd:
+        return jsonify({"error": "Round not found"}), 404
+    payload = {"round_number": rnd.round_number}
+    if error_message:
+        payload["error_message"] = error_message
+        payload["team_names"] = []
+        payload["matrix"] = []
+    else:
+        payload["team_names"] = team_names
+        payload["matrix"] = matrix
+    return jsonify(payload)
 
 
 # --- Contract spec ---
