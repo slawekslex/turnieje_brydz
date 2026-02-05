@@ -1,9 +1,8 @@
 """
-Flask API: tournament list and create endpoints.
+Flask API: pages and REST endpoints for tournaments, rounds, settings.
 """
 
 import uuid
-from datetime import date
 from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request, render_template
@@ -13,22 +12,12 @@ from bridge.models.contract import (
     CONTRACT_MODIFIERS,
     CONTRACT_PATTERN,
     CONTRACT_SUITS,
-    validate_contract_string,
 )
-from bridge.scoring import compute_score, calculate_deal_imp_scores
-from bridge.models.round_models import (
-    Result,
-    Round,
-    Team,
-    TeamMember,
-    standard_16_board_deal_sequence,
-)
+from bridge.scoring import compute_score
+from bridge.models.round_models import Result
 from bridge.models.tournament import Tournament
-from bridge.services.generator import (
-    add_round_robin,
-    validate_round_robin,
-    assign_deals_to_rounds,
-)
+from bridge.services.round_results import round_results_view_data
+from bridge.services.tournament_service import parse_tournament_payload
 from bridge.storage import (
     ensure_data_dir,
     ensure_tournament_dir,
@@ -41,10 +30,9 @@ from bridge.storage import (
     save_tournament,
     tournament_folder_name,
 )
+from bridge.validation import validate_result_complete, validate_result_fields
 
 bp = Blueprint("api", __name__, url_prefix="")
-
-DEALS_PER_ROUND = 2
 
 
 def _data_dir() -> Path:
@@ -52,68 +40,10 @@ def _data_dir() -> Path:
 
 
 def _tournament_path(tour_id: str) -> Path | None:
-    """Path to tournament data.json (data/<folder>/data.json). Returns None if not found."""
     return get_tournament_data_path(_data_dir(), tour_id)
 
 
-def _cycles_from_num_rounds_and_deals(
-    num_teams: int, num_rounds: int, deals_per_round: int
-) -> list:
-    """
-    Build cycles list from total rounds and deals per round.
-    One full round-robin = num_teams - 1 rounds. If num_rounds is not divisible,
-    the last cycle is partial (use "rounds": k in that entry).
-    Returns [] when num_rounds is 0 (caller may then use default or empty rounds).
-    """
-    rounds_per_cycle = num_teams - 1 if num_teams >= 2 else 0
-    if rounds_per_cycle <= 0:
-        return [{"deals_per_round": max(0, deals_per_round)}] if num_rounds > 0 else []
-    if num_rounds <= 0:
-        return []
-    num_full = num_rounds // rounds_per_cycle
-    remainder = num_rounds % rounds_per_cycle
-    cycles = [{"deals_per_round": max(0, deals_per_round)}] * num_full
-    if remainder > 0:
-        cycles.append({"deals_per_round": max(0, deals_per_round), "rounds": remainder})
-    return cycles
-
-
-def _build_rounds_from_cycles(teams, cycles: list) -> list:
-    """Build full rounds list from cycles using add_round_robin (each new cycle distinct from previous)."""
-    if not cycles:
-        cycles = [{"deals_per_round": DEALS_PER_ROUND}]
-    rounds_per_cycle = len(teams) - 1
-    all_rounds = []
-    deal_id_start = 1
-    global_round_id = 1
-    existing_cycles: list = []  # list of List[Round] (structure only) for add_round_robin
-    for c in cycles:
-        deals_per_round = max(0, int(c.get("deals_per_round") or 0))
-        rounds_in_cycle = c.get("rounds")
-        if rounds_in_cycle is None:
-            rounds_in_cycle = rounds_per_cycle
-        else:
-            rounds_in_cycle = min(max(0, int(rounds_in_cycle)), rounds_per_cycle)
-        schedule = add_round_robin(teams, existing_cycles, k=100)
-        validate_round_robin(teams, schedule)
-        existing_cycles.append(schedule)
-        deal_seq = standard_16_board_deal_sequence(start_id=deal_id_start)
-        cycle_rounds = assign_deals_to_rounds(schedule, deals_per_round, deal_seq)
-        cycle_rounds = cycle_rounds[:rounds_in_cycle]
-        for rnd in cycle_rounds:
-            all_rounds.append(
-                Round(
-                    id=global_round_id,
-                    round_number=global_round_id,
-                    tables=rnd.tables,
-                    deals=rnd.deals,
-                    results_by_table_deal=rnd.results_by_table_deal,
-                )
-            )
-            global_round_id += 1
-        deal_id_start += rounds_in_cycle * deals_per_round
-    return all_rounds
-
+# --- Pages ---
 
 @bp.route("/")
 def index():
@@ -122,7 +52,6 @@ def index():
 
 @bp.route("/tournament/<tour_id>")
 def tournament_edit_page(tour_id: str):
-    """Serve the tournament edit page."""
     path = _tournament_path(tour_id)
     if not path or not path.exists():
         return render_template("404.html"), 404
@@ -131,112 +60,14 @@ def tournament_edit_page(tour_id: str):
 
 @bp.route("/tournament/<tour_id>/rounds")
 def tournament_rounds_page(tour_id: str):
-    """Serve the tournament rounds page (enter results, view results, standings)."""
     path = _tournament_path(tour_id)
     if not path or not path.exists():
         return render_template("404.html"), 404
     return render_template("tournament_rounds.html", tour_id=tour_id)
 
 
-def _round_results_view_data(tournament, round_id: int):
-    """Build deal-by-deal results with IMPs for the round results page. Returns (round, deals_with_tables) or (None, None) if round not found."""
-    rnd = next((r for r in tournament.rounds if r.id == round_id), None)
-    if not rnd:
-        return None, None
-    team_by_id = {t.id: t.name for t in tournament.teams}
-    tables_sorted = sorted(rnd.tables, key=lambda t: t.table_number)
-    deals_with_tables = []
-    for d in rnd.deals:
-        rows = []
-        ns_scores = []
-        for tbl in tables_sorted:
-            res = rnd.results_by_table_deal.get((tbl.table_number, d.id))
-            ns_name = team_by_id.get(tbl.ns_team_id, "?")
-            ew_name = team_by_id.get(tbl.ew_team_id, "?")
-            if res:
-                rows.append({
-                    "table_number": tbl.table_number,
-                    "ns_team": ns_name,
-                    "ew_team": ew_name,
-                    "contract": res.contract or "—",
-                    "declarer": res.declarer or "—",
-                    "opening_lead": res.opening_lead or "—",
-                    "tricks_taken": res.tricks_taken if res.tricks_taken is not None else "—",
-                    "ns_score": res.ns_score,
-                    "ew_score": res.ew_score,
-                })
-                ns_scores.append(res.ns_score)
-            else:
-                rows.append({
-                    "table_number": tbl.table_number,
-                    "ns_team": ns_name,
-                    "ew_team": ew_name,
-                    "contract": "—",
-                    "declarer": "—",
-                    "opening_lead": "—",
-                    "tricks_taken": "—",
-                    "ns_score": None,
-                    "ew_score": None,
-                })
-        if len(ns_scores) == len(rows) and ns_scores:
-            imps = calculate_deal_imp_scores(ns_scores)
-            for i, row in enumerate(rows):
-                row["ns_imp"] = imps[i][0]
-                row["ew_imp"] = imps[i][1]
-        else:
-            for row in rows:
-                row["ns_imp"] = None
-                row["ew_imp"] = None
-        deals_with_tables.append({
-            "deal": d,
-            "table_rows": rows,
-        })
-    return rnd, deals_with_tables
-
-
-@bp.route("/api/tournaments/<tour_id>/rounds/<int:round_id>/deal-results", methods=["GET"])
-def get_round_deal_results(tour_id: str, round_id: int):
-    """Return deal-by-deal results with IMPs for a round (JSON for inline rendering)."""
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return jsonify({"error": "Not found"}), 404
-    tournament = load_tournament(path)
-    rnd, deals_with_tables = _round_results_view_data(tournament, round_id)
-    if not rnd:
-        return jsonify({"error": "Round not found"}), 404
-    out = []
-    for item in deals_with_tables:
-        d = item["deal"]
-        out.append({
-            "deal": {"number": d.number, "dealer": d.dealer, "vulnerability": d.vulnerability},
-            "table_rows": item["table_rows"],
-        })
-    return jsonify({"deals_with_tables": out})
-
-
-@bp.route("/tournament/<tour_id>/rounds/<int:round_id>/results")
-def round_results_page(tour_id: str, round_id: int):
-    """Wyniki rozdań: read-only view of contracts and IMP scores per deal per table."""
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return render_template("404.html"), 404
-    tournament = load_tournament(path)
-    rnd, deals_with_tables = _round_results_view_data(tournament, round_id)
-    if not rnd:
-        return render_template("404.html"), 404
-    return render_template(
-        "round_results.html",
-        tour_id=tour_id,
-        tournament_name=tournament.name,
-        round_number=rnd.round_number,
-        round_id=rnd.id,
-        deals_with_tables=deals_with_tables,
-    )
-
-
 @bp.route("/tournament/<tour_id>/rounds/<int:round_id>/ranking")
 def round_ranking_placeholder(tour_id: str, round_id: int):
-    """Placeholder for round ranking page."""
     path = _tournament_path(tour_id)
     if not path or not path.exists():
         return render_template("404.html"), 404
@@ -248,16 +79,15 @@ def round_ranking_placeholder(tour_id: str, round_id: int):
     )
 
 
+# --- Settings ---
+
 @bp.route("/api/settings", methods=["GET"])
 def get_settings():
-    """Return app settings (e.g. debug_mode)."""
-    settings = load_settings(_data_dir())
-    return jsonify(settings)
+    return jsonify(load_settings(_data_dir()))
 
 
 @bp.route("/api/settings", methods=["PATCH"])
 def update_settings():
-    """Update app settings. Body: { debug_mode?: bool }. Returns updated settings."""
     body = request.get_json(force=True, silent=True) or {}
     allowed = {"debug_mode"}
     updates = {k: v for k, v in body.items() if k in allowed and isinstance(v, bool)}
@@ -267,9 +97,10 @@ def update_settings():
     return jsonify(load_settings(_data_dir()))
 
 
+# --- Tournaments ---
+
 @bp.route("/api/tournaments", methods=["GET"])
 def list_tournaments():
-    """Return list of non-archived tournaments: [{ id, name, date }, ...]."""
     entries = list_tournament_entries(_data_dir())
     active = [e for e in entries if not e.get("archived")]
     return jsonify(active)
@@ -277,17 +108,12 @@ def list_tournaments():
 
 @bp.route("/api/tournaments/<tour_id>", methods=["GET"])
 def get_tournament(tour_id: str):
-    """Return a single tournament for editing: { id, name, date, teams }."""
     path = _tournament_path(tour_id)
     if not path or not path.exists():
         return jsonify({"error": "Not found"}), 404
     tournament = load_tournament(path)
     teams_data = [
-        {
-            "name": t.name,
-            "member1": t.member1.name,
-            "member2": t.member2.name,
-        }
+        {"name": t.name, "member1": t.member1.name, "member2": t.member2.name}
         for t in tournament.teams
     ]
     cycles = load_tournament_cycles(path)
@@ -302,7 +128,6 @@ def get_tournament(tour_id: str):
 
 @bp.route("/api/tournaments/<tour_id>/rounds", methods=["GET"])
 def get_tournament_rounds(tour_id: str):
-    """Return tournament rounds data: name, date, rounds with deals and tables (team names + results per deal)."""
     path = _tournament_path(tour_id)
     if not path or not path.exists():
         return jsonify({"error": "Not found"}), 404
@@ -332,7 +157,10 @@ def get_tournament_rounds(tour_id: str):
                         "ew_score": res.ew_score,
                     }
                 else:
-                    results_by_deal[str(d.id)] = {"contract": "", "declarer": "", "opening_lead": "", "tricks_taken": None, "ns_score": 0, "ew_score": 0}
+                    results_by_deal[str(d.id)] = {
+                        "contract": "", "declarer": "", "opening_lead": "",
+                        "tricks_taken": None, "ns_score": 0, "ew_score": 0,
+                    }
             tables_data.append({
                 "table_number": tbl.table_number,
                 "ns_team": ns,
@@ -353,9 +181,29 @@ def get_tournament_rounds(tour_id: str):
     })
 
 
+@bp.route("/api/tournaments/<tour_id>/rounds/<int:round_id>/deal-results", methods=["GET"])
+def get_round_deal_results(tour_id: str, round_id: int):
+    path = _tournament_path(tour_id)
+    if not path or not path.exists():
+        return jsonify({"error": "Not found"}), 404
+    tournament = load_tournament(path)
+    rnd, deals_with_tables = round_results_view_data(tournament, round_id)
+    if not rnd:
+        return jsonify({"error": "Round not found"}), 404
+    out = [
+        {
+            "deal": {"number": item["deal"].number, "dealer": item["deal"].dealer, "vulnerability": item["deal"].vulnerability},
+            "table_rows": item["table_rows"],
+        }
+        for item in deals_with_tables
+    ]
+    return jsonify({"deals_with_tables": out})
+
+
+# --- Contract spec ---
+
 @bp.route("/api/contract-spec", methods=["GET"])
 def contract_spec():
-    """Return contract validation spec: levels, suits, modifiers, pattern (regex source)."""
     return jsonify({
         "levels": list(CONTRACT_LEVELS),
         "suits": list(CONTRACT_SUITS),
@@ -364,62 +212,32 @@ def contract_spec():
     })
 
 
-VALID_DECLARERS = ("N", "S", "E", "W")
+# --- Result validation ---
 
-
-def _validate_result_fields(contract: str, declarer: str, opening_lead: str, tricks_taken) -> list:
-    """Validate result field values. Returns list of { 'field': str, 'message': str } (empty if valid)."""
-    errors = []
-    contract = (contract or "").strip()
-    if contract and not validate_contract_string(contract):
-        errors.append({"field": "contract", "message": "Kontrakt: poziom 1–7, kolor C/D/H/S/NT, opcjonalnie x lub xx (np. 3NT, 4Sx)."})
-    declarer = (declarer or "").strip().upper()
-    if declarer and declarer not in VALID_DECLARERS:
-        errors.append({"field": "declarer", "message": "Rozgrywający: N, S, E lub W."})
-    if tricks_taken is not None and (not isinstance(tricks_taken, int) or tricks_taken < 0 or tricks_taken > 13):
-        errors.append({"field": "tricks_taken", "message": "Wziątki: 0–13."})
-    return errors
-
-
-def _validate_result_complete(contract: str, declarer: str, opening_lead: str, tricks_taken) -> list:
-    """Require all fields to be filled. Returns list of { 'field', 'message' } for empty fields."""
-    errors = []
-    if not (contract or "").strip():
-        errors.append({"field": "contract", "message": "Wypełnij pole."})
-    if not (declarer or "").strip().upper():
-        errors.append({"field": "declarer", "message": "Wypełnij pole."})
-    if not (opening_lead or "").strip():
-        errors.append({"field": "opening_lead", "message": "Wypełnij pole."})
-    if tricks_taken is None or (isinstance(tricks_taken, str) and tricks_taken.strip() == ""):
-        errors.append({"field": "tricks_taken", "message": "Wypełnij pole."})
-    return errors
+def _parse_tricks(raw):
+    if raw is None or raw == "":
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 @bp.route("/api/validate-result", methods=["POST"])
 def validate_result():
-    """
-    Validate result fields without saving.
-    Body: { contract, declarer, opening_lead, tricks_taken, vulnerability }.
-    Returns 200 { valid: true, ns_score, ew_score } or 200 { valid: false, errors: [...] }.
-    vulnerability is required for score (e.g. "None", "N-S", "E-W", "Both").
-    """
     body = request.get_json(force=True, silent=True) or {}
     contract = (body.get("contract") or "").strip()
     declarer = (body.get("declarer") or "").strip().upper()
     opening_lead = (body.get("opening_lead") or "").strip()
     vulnerability = (body.get("vulnerability") or "").strip() or "None"
-    tricks_raw = body.get("tricks_taken")
-    tricks_taken = None
-    if tricks_raw is not None and tricks_raw != "":
-        try:
-            tricks_taken = int(tricks_raw)
-        except (TypeError, ValueError):
-            tricks_taken = "invalid"
-    errors = _validate_result_complete(contract, declarer, opening_lead, tricks_taken)
+    tricks_taken = _parse_tricks(body.get("tricks_taken"))
+
+    errors = validate_result_complete(contract, declarer, opening_lead, tricks_taken)
     if not errors:
-        errors = _validate_result_fields(contract, declarer, opening_lead, tricks_taken)
+        errors = validate_result_fields(contract, declarer, opening_lead, tricks_taken)
     if errors:
         return jsonify({"valid": False, "errors": errors})
+
     pair = compute_score(contract, declarer, tricks_taken, vulnerability)
     if pair is None:
         return jsonify({"valid": True, "ns_score": 0, "ew_score": 0})
@@ -427,13 +245,10 @@ def validate_result():
     return jsonify({"valid": True, "ns_score": ns_score, "ew_score": ew_score})
 
 
+# --- Save round results ---
+
 @bp.route("/api/tournaments/<tour_id>/round-results", methods=["POST"])
 def save_round_results(tour_id: str):
-    """
-    Save deal results for one round (partial save: valid deals are saved, invalid are skipped).
-    Body: { "round_id": int, "results": [ { "table_number", "deal_id", "contract", "declarer", "opening_lead", "tricks_taken" }, ... ] }
-    Returns 200 { "ok": true, "saved": N, "total": M, "results": [ { "ok": true, "ns_score", "ew_score" } | { "ok": false, "error", "field" }, ... ] } (one per request item).
-    """
     path = _tournament_path(tour_id)
     if not path or not path.exists():
         return jsonify({"error": "Not found"}), 404
@@ -444,7 +259,6 @@ def save_round_results(tour_id: str):
         return jsonify({"error": "round_id required"}), 400
     round_id = int(round_id)
 
-    # Validate each result; build validated list and per-index outcome for response
     validated = []
     out_results = []
     for idx, item in enumerate(results_list):
@@ -459,16 +273,11 @@ def save_round_results(tour_id: str):
         contract = (item.get("contract") or "").strip()
         declarer = (item.get("declarer") or "").strip().upper()
         opening_lead = (item.get("opening_lead") or "").strip()
-        tricks_raw = item.get("tricks_taken")
-        tricks_taken = None
-        if tricks_raw is not None:
-            try:
-                tricks_taken = int(tricks_raw)
-            except (TypeError, ValueError):
-                pass
-        errs = _validate_result_complete(contract, declarer, opening_lead, tricks_taken)
+        tricks_taken = _parse_tricks(item.get("tricks_taken"))
+
+        errs = validate_result_complete(contract, declarer, opening_lead, tricks_taken)
         if not errs:
-            errs = _validate_result_fields(contract, declarer, opening_lead, tricks_taken)
+            errs = validate_result_fields(contract, declarer, opening_lead, tricks_taken)
         if errs:
             out_results.append({"ok": False, "error": errs[0]["message"], "field": errs[0]["field"]})
             validated.append(None)
@@ -481,7 +290,7 @@ def save_round_results(tour_id: str):
                 "opening_lead": opening_lead,
                 "tricks_taken": tricks_taken,
             })
-            out_results.append(None)  # placeholder, fill after save
+            out_results.append(None)
 
     tournament = load_tournament(path)
     rnd = next((r for r in tournament.rounds if r.id == round_id), None)
@@ -494,14 +303,8 @@ def save_round_results(tour_id: str):
             continue
         deal = next((d for d in rnd.deals if d.id == v["deal_id"]), None)
         vulnerability = deal.vulnerability if deal else "None"
-        pair = compute_score(
-            v["contract"], v["declarer"], v["tricks_taken"], vulnerability
-        )
-        if pair is not None:
-            ns_score, ew_score = pair
-        else:
-            ns_score = 0
-            ew_score = 0
+        pair = compute_score(v["contract"], v["declarer"], v["tricks_taken"], vulnerability)
+        ns_score, ew_score = (pair if pair is not None else (0, 0))
         key = (v["table_number"], v["deal_id"])
         rnd.results_by_table_deal[key] = Result(
             round_id=round_id,
@@ -518,8 +321,7 @@ def save_round_results(tour_id: str):
         saved_count += 1
 
     if saved_count > 0:
-        cycles = load_tournament_cycles(path)
-        save_tournament(tournament, path, cycles=cycles)
+        save_tournament(tournament, path, cycles=load_tournament_cycles(path))
 
     return jsonify({
         "ok": True,
@@ -529,74 +331,21 @@ def save_round_results(tour_id: str):
     })
 
 
+# --- Create / update tournament ---
+
 @bp.route("/api/tournaments", methods=["POST"])
 def create_tournament():
-    """
-    Create a new tournament.
-    Body: { "name": str, "date": "YYYY-MM-DD", "teams": [ { "name": str, "member1": str, "member2": str }, ... ] }
-    Teams must be even, >= 2.
-    """
     ensure_data_dir(_data_dir())
     body = request.get_json(force=True, silent=True) or {}
-    name = (body.get("name") or "").strip()
-    date_str = body.get("date") or ""
-    teams_data = body.get("teams") or []
-
-    errors = []
-    if not name:
-        errors.append("Name is required.")
-    if not date_str:
-        errors.append("Date is required.")
-    else:
-        try:
-            tournament_date = date.fromisoformat(date_str)
-        except ValueError:
-            errors.append("Invalid date; use YYYY-MM-DD.")
-            tournament_date = None
-    if len(teams_data) < 2:
-        errors.append("At least 2 teams are required.")
-    if len(teams_data) % 2 != 0:
-        errors.append("Number of teams must be even.")
-
+    data, errors = parse_tournament_payload(body)
     if errors:
         return jsonify({"ok": False, "errors": errors}), 400
-
-    teams = []
-    for i, t in enumerate(teams_data):
-        team_name = (t.get("name") or "").strip()
-        m1 = (t.get("member1") or "").strip()
-        m2 = (t.get("member2") or "").strip()
-        if not team_name:
-            errors.append(f"Team {i + 1}: name is required.")
-        if not m1:
-            errors.append(f"Team {i + 1}: member 1 name is required.")
-        if not m2:
-            errors.append(f"Team {i + 1}: member 2 name is required.")
-        if team_name and m1 and m2:
-            teams.append(
-                Team(
-                    id=i + 1,
-                    name=team_name,
-                    member1=TeamMember(m1),
-                    member2=TeamMember(m2),
-                )
-            )
-    if errors:
-        return jsonify({"ok": False, "errors": errors}), 400
-
-    num_rounds_raw = body.get("num_rounds")
-    deals_per_round = max(0, int(body.get("deals_per_round") or DEALS_PER_ROUND))
-    if num_rounds_raw is not None:
-        num_rounds = max(0, int(num_rounds_raw))
-        cycles = _cycles_from_num_rounds_and_deals(len(teams), num_rounds, deals_per_round)
-        rounds = _build_rounds_from_cycles(teams, cycles) if cycles else []
-    else:
-        cycles = body.get("cycles") or [{"deals_per_round": DEALS_PER_ROUND}]
-        rounds = _build_rounds_from_cycles(teams, cycles)
+    name, tournament_date, teams, cycles, rounds = data
 
     tournament = Tournament(name=name, date=tournament_date, teams=teams, rounds=rounds)
     tour_id = str(uuid.uuid4())
     data_dir = _data_dir()
+    date_str = body.get("date") or ""
     folder = tournament_folder_name(name, date_str, tour_id, data_dir)
     ensure_tournament_dir(data_dir, folder)
     path = data_dir / folder / "data.json"
@@ -607,84 +356,26 @@ def create_tournament():
 
 @bp.route("/api/tournaments/<tour_id>/archive", methods=["POST"])
 def archive_tournament(tour_id: str):
-    """Mark a tournament as archived (excluded from main list)."""
     path = _tournament_path(tour_id)
     if not path or not path.exists():
         return jsonify({"ok": False, "error": "Not found"}), 404
     tournament = load_tournament(path)
-    cycles = load_tournament_cycles(path)
-    save_tournament(tournament, path, cycles=cycles, archived=True)
+    save_tournament(tournament, path, cycles=load_tournament_cycles(path), archived=True)
     return jsonify({"ok": True})
 
 
 @bp.route("/api/tournaments/<tour_id>", methods=["PUT"])
 def update_tournament(tour_id: str):
-    """
-    Update an existing tournament.
-    Body: same as POST create (name, date, teams). Regenerates schedule.
-    """
     path = _tournament_path(tour_id)
     if not path or not path.exists():
         return jsonify({"ok": False, "errors": ["Turniej nie istnieje."]}), 404
-
     body = request.get_json(force=True, silent=True) or {}
-    name = (body.get("name") or "").strip()
-    date_str = body.get("date") or ""
-    teams_data = body.get("teams") or []
-
-    errors = []
-    if not name:
-        errors.append("Name is required.")
-    if not date_str:
-        errors.append("Date is required.")
-    else:
-        try:
-            tournament_date = date.fromisoformat(date_str)
-        except ValueError:
-            errors.append("Invalid date; use YYYY-MM-DD.")
-            tournament_date = None
-    if len(teams_data) < 2:
-        errors.append("At least 2 teams are required.")
-    if len(teams_data) % 2 != 0:
-        errors.append("Number of teams must be even.")
-
+    data, errors = parse_tournament_payload(body)
     if errors:
         return jsonify({"ok": False, "errors": errors}), 400
-
-    teams = []
-    for i, t in enumerate(teams_data):
-        team_name = (t.get("name") or "").strip()
-        m1 = (t.get("member1") or "").strip()
-        m2 = (t.get("member2") or "").strip()
-        if not team_name:
-            errors.append(f"Team {i + 1}: name is required.")
-        if not m1:
-            errors.append(f"Team {i + 1}: member 1 name is required.")
-        if not m2:
-            errors.append(f"Team {i + 1}: member 2 name is required.")
-        if team_name and m1 and m2:
-            teams.append(
-                Team(
-                    id=i + 1,
-                    name=team_name,
-                    member1=TeamMember(m1),
-                    member2=TeamMember(m2),
-                )
-            )
-    if errors:
-        return jsonify({"ok": False, "errors": errors}), 400
-
-    num_rounds_raw = body.get("num_rounds")
-    deals_per_round = max(0, int(body.get("deals_per_round") or DEALS_PER_ROUND))
-    if num_rounds_raw is not None:
-        num_rounds = max(0, int(num_rounds_raw))
-        cycles = _cycles_from_num_rounds_and_deals(len(teams), num_rounds, deals_per_round)
-        rounds = _build_rounds_from_cycles(teams, cycles) if cycles else []
-    else:
-        cycles = body.get("cycles") or [{"deals_per_round": DEALS_PER_ROUND}]
-        rounds = _build_rounds_from_cycles(teams, cycles)
+    name, tournament_date, teams, cycles, rounds = data
 
     tournament = Tournament(name=name, date=tournament_date, teams=teams, rounds=rounds)
     save_tournament(tournament, path, cycles=cycles)
-
+    date_str = body.get("date") or ""
     return jsonify({"ok": True, "id": tour_id, "name": name, "date": date_str})

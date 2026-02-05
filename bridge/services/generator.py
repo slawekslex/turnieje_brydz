@@ -1,7 +1,14 @@
 from typing import Dict, Iterator, List, Set, Tuple, Optional
 import random
 
-from bridge.models.round_models import Team, Deal, Round, TableAssignment, TableNumber
+from bridge.models.round_models import (
+    Deal,
+    Round,
+    TableAssignment,
+    Team,
+    TableNumber,
+    standard_16_board_deal_sequence,
+)
 
 
 def generate_round_robin(
@@ -370,3 +377,69 @@ def generate_two_round_robin(
     print(f"Best difference score over {k} candidates: {score}")
 
     return cycle_a, cycle_b
+
+
+DEFAULT_DEALS_PER_ROUND = 2
+
+
+def cycles_from_num_rounds_and_deals(
+    num_teams: int, num_rounds: int, deals_per_round: int
+) -> List[dict]:
+    """
+    Build cycles list from total rounds and deals per round.
+    One full round-robin = num_teams - 1 rounds. If num_rounds is not divisible,
+    the last cycle is partial (use "rounds": k in that entry).
+    Returns [] when num_rounds is 0.
+    """
+    rounds_per_cycle = num_teams - 1 if num_teams >= 2 else 0
+    if rounds_per_cycle <= 0:
+        return [{"deals_per_round": max(0, deals_per_round)}] if num_rounds > 0 else []
+    if num_rounds <= 0:
+        return []
+    num_full = num_rounds // rounds_per_cycle
+    remainder = num_rounds % rounds_per_cycle
+    cycles = [{"deals_per_round": max(0, deals_per_round)}] * num_full
+    if remainder > 0:
+        cycles.append({"deals_per_round": max(0, deals_per_round), "rounds": remainder})
+    return cycles
+
+
+def build_rounds_from_cycles(
+    teams: List[Team],
+    cycles: List[dict],
+    deals_per_round_default: int = DEFAULT_DEALS_PER_ROUND,
+) -> List[Round]:
+    """Build full rounds list from cycles using add_round_robin (each new cycle distinct from previous)."""
+    if not cycles:
+        cycles = [{"deals_per_round": deals_per_round_default}]
+    rounds_per_cycle = len(teams) - 1
+    all_rounds: List[Round] = []
+    deal_id_start = 1
+    global_round_id = 1
+    existing_cycles: List[List[Round]] = []
+    for c in cycles:
+        deals_per_round = max(0, int(c.get("deals_per_round") or 0))
+        rounds_in_cycle = c.get("rounds")
+        if rounds_in_cycle is None:
+            rounds_in_cycle = rounds_per_cycle
+        else:
+            rounds_in_cycle = min(max(0, int(rounds_in_cycle)), rounds_per_cycle)
+        schedule = add_round_robin(teams, existing_cycles, k=100)
+        validate_round_robin(teams, schedule)
+        existing_cycles.append(schedule)
+        deal_seq = standard_16_board_deal_sequence(start_id=deal_id_start)
+        cycle_rounds = assign_deals_to_rounds(schedule, deals_per_round, deal_seq)
+        cycle_rounds = cycle_rounds[:rounds_in_cycle]
+        for rnd in cycle_rounds:
+            all_rounds.append(
+                Round(
+                    id=global_round_id,
+                    round_number=global_round_id,
+                    tables=rnd.tables,
+                    deals=rnd.deals,
+                    results_by_table_deal=rnd.results_by_table_deal,
+                )
+            )
+            global_round_id += 1
+        deal_id_start += rounds_in_cycle * deals_per_round
+    return all_rounds
