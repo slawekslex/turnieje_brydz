@@ -634,14 +634,16 @@
           var savedCount = 0;
           for (var k = 0; k < data.results.length; k++) { if (data.results[k] && data.results[k].ok) savedCount++; }
           var totalCount = data.results.length;
+          var errorCount = totalCount - savedCount;
           if (savedCount === totalCount && savedCount > 0) {
-            saveRoundStatus.textContent = 'Wszystkie rozdania zapisane.';
+            saveRoundStatus.textContent = 'Zapisano ' + savedCount + ' z ' + totalCount + ' wyników.';
             saveRoundStatus.className = 'save-round-status save-round-status--success';
           } else if (savedCount > 0) {
-            saveRoundStatus.textContent = 'Zapisano ' + savedCount + '/' + totalCount + ' rozdań.';
+            var errWord = errorCount === 1 ? '1 wiersz zawiera' : (errorCount < 5 ? errorCount + ' wiersze zawierają' : errorCount + ' wierszy zawierają');
+            saveRoundStatus.textContent = 'Zapisano ' + savedCount + ' z ' + totalCount + ' wyników. ' + errWord + ' błędy – popraw je i zapisz ponownie.';
             saveRoundStatus.className = 'save-round-status save-round-status--partial';
           } else {
-            saveRoundStatus.textContent = 'Błędy w danych – popraw oznaczone pola.';
+            saveRoundStatus.textContent = 'Żaden wynik nie został zapisany. Wszystkie wiersze zawierają błędy – popraw je i zapisz ponownie.';
             saveRoundStatus.className = 'save-round-status save-round-status--partial';
           }
         }
@@ -888,6 +890,15 @@
     }
   });
 
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+      if (roundViewMode === 'edit' && btnSaveRound && !btnSaveRound.disabled) {
+        e.preventDefault();
+        saveRoundResults();
+      }
+    }
+  });
+
   fetch('/api/tournaments/' + encodeURIComponent(tourId) + '/rounds')
     .then(function (res) {
       if (!res.ok) {
@@ -904,7 +915,10 @@
     .then(function (data) {
       if (!data) return;
       roundsData = data;
-      tournamentTitle.textContent = data.name || 'Rundy';
+      var tourName = data.name || 'Rundy';
+      tournamentTitle.textContent = tourName;
+      var breadcrumbName = document.getElementById('breadcrumb-tournament-name');
+      if (breadcrumbName) breadcrumbName.textContent = tourName;
       roundsMeta.textContent = 'Data: ' + (data.date || '');
       renderRoundsList();
       var initialIndex = 0;

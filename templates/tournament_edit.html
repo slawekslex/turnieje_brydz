@@ -30,6 +30,13 @@
     </div>
   </div>
   <div class="container">
+    <nav class="breadcrumb" aria-label="Nawigacja">
+      <ol class="breadcrumb-list">
+        <li><a href="{{ url_for('api.index') }}">Lista turniejów</a></li>
+        <li><a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}"><span id="breadcrumb-tournament-name">Turniej</span></a></li>
+        <li aria-current="page">Edycja</li>
+      </ol>
+    </nav>
     <header>
       <h1>Turnieje brydżowe</h1>
       <div class="header-actions">

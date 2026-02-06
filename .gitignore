@@ -12,6 +12,7 @@ env/
 .coverage
 htmlcov/
 tests/tmp_tournament_rounds_data/
+tests/tmp_api_tournaments/
 
 # IDE
 .idea/
@@ -25,3 +26,6 @@ Thumbs.db
 # Tournament data (stored under data/)
 data/*
 !data/.gitkeep
+
+# Local config (secrets)
+.env

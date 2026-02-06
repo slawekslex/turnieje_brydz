@@ -233,6 +233,8 @@
     })
     .then(function (data) {
       if (!data) return;
+      var breadcrumbName = document.getElementById('breadcrumb-tournament-name');
+      if (breadcrumbName) breadcrumbName.textContent = data.name || 'Turniej';
       document.getElementById('tournament-name').value = data.name || '';
       document.getElementById('tournament-date').value = data.date || '';
       teamsContainer.innerHTML = '';

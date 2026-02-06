@@ -141,7 +141,7 @@ class TestRoundRankingData(unittest.TestCase):
         rnd_out, ranking, round_nums, err = round_ranking_data(tournament, 999)
         self.assertIsNone(rnd_out)
         self.assertIsNone(ranking)
-        self.assertEqual(err, "Round not found")
+        self.assertEqual(err, "Runda nie znaleziona")
 
     def test_incomplete_results_returns_error(self):
         teams = _make_teams(2)
@@ -156,7 +156,7 @@ class TestRoundRankingData(unittest.TestCase):
         rnd_out, ranking, round_nums, err = round_ranking_data(tournament, 1)
         self.assertIsNotNone(rnd_out)
         self.assertIsNone(ranking)
-        self.assertIn("Not all results saved", err)
+        self.assertIn("Nie wszystkie wyniki są zapisane", err)
         self.assertIn("1", err)
 
     def test_single_round_full_results_returns_ranking(self):
@@ -277,7 +277,7 @@ class TestRoundHeadToHeadData(unittest.TestCase):
         tournament = Tournament("T", date.today(), teams, [rnd])
         rnd_out, err, names, matrix = round_head_to_head_data(tournament, 999)
         self.assertIsNone(rnd_out)
-        self.assertEqual(err, "Round not found")
+        self.assertEqual(err, "Runda nie znaleziona")
         self.assertEqual(names, [])
         self.assertEqual(matrix, [])
 
@@ -293,7 +293,7 @@ class TestRoundHeadToHeadData(unittest.TestCase):
         tournament = Tournament("T", date.today(), teams, [rnd])
         rnd_out, err, names, matrix = round_head_to_head_data(tournament, 1)
         self.assertIsNotNone(rnd_out)
-        self.assertIn("Not all results saved", err)
+        self.assertIn("Nie wszystkie wyniki są zapisane", err)
         self.assertEqual(names, [])
         self.assertEqual(matrix, [])
 

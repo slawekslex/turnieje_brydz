@@ -37,6 +37,13 @@
 </head>
 <body class="app-body schedule-page">
   <div class="container">
+    <nav class="breadcrumb no-print" aria-label="Nawigacja">
+      <ol class="breadcrumb-list">
+        <li><a href="{{ url_for('api.index') }}">Lista turniejów</a></li>
+        <li><a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}">{{ tournament_name }}</a></li>
+        <li aria-current="page">Harmonogram</li>
+      </ol>
+    </nav>
     <header>
       <h1 class="schedule-print-title">{{ tournament_name }}</h1>
       <p class="schedule-print-date muted" aria-hidden="true">{{ tournament_date }}</p>

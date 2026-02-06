@@ -119,7 +119,9 @@ def save_tournament(
             with path.open("r", encoding="utf-8") as f:
                 existing = json.load(f)
             data["id"] = existing.get("id")
-            data["archived"] = existing.get("archived", False)
+            data["archived"] = (
+                archived if archived is not None else existing.get("archived", False)
+            )
         except (json.JSONDecodeError, OSError):
             data["id"] = tour_id
             data["archived"] = archived if archived is not None else False

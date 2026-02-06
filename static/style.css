@@ -82,6 +82,51 @@ h2 {
 }
 
 /* --------------------------------------------------------------------------
+   Breadcrumb
+   -------------------------------------------------------------------------- */
+.breadcrumb {
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.breadcrumb-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  gap: 0.25rem;
+}
+
+.breadcrumb-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.breadcrumb-list li:not(:last-child)::after {
+  content: "›";
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.breadcrumb-list a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.breadcrumb-list a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.breadcrumb-list [aria-current="page"] {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* --------------------------------------------------------------------------
    Cards
    -------------------------------------------------------------------------- */
 .card {
@@ -737,6 +782,11 @@ a.btn {
   font-size: 1rem;
   font-weight: 600;
   margin-left: auto;
+}
+
+.save-round-hint {
+  font-size: 0.85rem;
+  margin-left: 0.25rem;
 }
 
 .save-round-status {

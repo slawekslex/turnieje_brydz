@@ -2,10 +2,12 @@
 Flask API: pages and REST endpoints for tournaments, rounds, settings.
 """
 
+import json
 import uuid
 from pathlib import Path
+from typing import Any
 
-from flask import Blueprint, current_app, jsonify, request, render_template
+from flask import Blueprint, current_app, jsonify, redirect, request, render_template, url_for
 
 from bridge.models.contract import (
     CONTRACT_LEVELS,
@@ -14,9 +16,10 @@ from bridge.models.contract import (
     CONTRACT_SUITS,
 )
 from bridge.scoring import compute_score
-from bridge.models.round_models import Result
+from bridge.models.round_models import Result, Round
 from bridge.models.tournament import Tournament
 from bridge.services.round_results import round_head_to_head_data, round_ranking_data, round_results_view_data
+from bridge.services.schedule import schedule_view_data
 from bridge.services.tournament_service import parse_tournament_payload
 from bridge.storage import (
     ensure_data_dir,
@@ -43,6 +46,55 @@ def _tournament_path(tour_id: str) -> Path | None:
     return get_tournament_data_path(_data_dir(), tour_id)
 
 
+def _get_tournament_or_error(
+    tour_id: str, *, json_response: bool = False
+) -> tuple[Tournament | None, Path | None, tuple[Any, int] | None]:
+    """
+    Load tournament by tour_id. Returns (tournament, path, None) on success.
+    On failure returns (None, None, (response, status_code)) — 404 if not found,
+    503 if file exists but cannot be read (corrupt JSON, etc.). Logs load failures.
+    """
+    path = _tournament_path(tour_id)
+    if not path or not path.exists():
+        if json_response:
+            return None, None, (jsonify({"error": "Nie znaleziono"}), 404)
+        return None, None, (render_template("404.html"), 404)
+    try:
+        tournament = load_tournament(path)
+        return tournament, path, None
+    except (OSError, json.JSONDecodeError, ValueError, KeyError, TypeError):
+        current_app.logger.exception("Load tournament failed: tour_id=%s", tour_id)
+        if json_response:
+            return None, None, (jsonify({"error": "Nie można odczytać danych turnieju."}), 503)
+        return None, None, (render_template("503.html"), 503)
+
+
+def _require_tournament_path(
+    tour_id: str,
+) -> tuple[Path | None, tuple[Any, int] | None]:
+    """
+    Check that tournament path exists (no load). For page routes that only need
+    to ensure the tournament exists. Returns (path, None) if ok, (None, (response, 404)) otherwise.
+    """
+    path = _tournament_path(tour_id)
+    if not path or not path.exists():
+        return None, (render_template("404.html"), 404)
+    return path, None
+
+
+def _get_round_or_error(
+    tournament: Tournament, round_id: int
+) -> tuple[Round | None, tuple[Any, int] | None]:
+    """
+    Find round by id in tournament. Returns (round, None) if found,
+    (None, (json_response, 404)) otherwise. Use for API routes that need a round.
+    """
+    rnd = next((r for r in tournament.rounds if r.id == round_id), None)
+    if not rnd:
+        return None, (jsonify({"error": "Runda nie znaleziona"}), 404)
+    return rnd, None
+
+
 # --- Pages ---
 
 @bp.route("/")
@@ -52,42 +104,26 @@ def index():
 
 @bp.route("/tournament/<tour_id>")
 def tournament_edit_page(tour_id: str):
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return render_template("404.html"), 404
+    _path, err = _require_tournament_path(tour_id)
+    if err:
+        return err[0], err[1]
     return render_template("tournament_edit.html", tour_id=tour_id)
 
 
 @bp.route("/tournament/<tour_id>/rounds")
 def tournament_rounds_page(tour_id: str):
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return render_template("404.html"), 404
+    _path, err = _require_tournament_path(tour_id)
+    if err:
+        return err[0], err[1]
     return render_template("tournament_rounds.html", tour_id=tour_id)
 
 
 @bp.route("/tournament/<tour_id>/schedule")
 def tournament_schedule_page(tour_id: str):
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return render_template("404.html"), 404
-    tournament = load_tournament(path)
-    team_by_id = {t.id: t.name for t in tournament.teams}
-    schedule = []
-    for rnd in tournament.rounds:
-        tables = []
-        for tbl in sorted(rnd.tables, key=lambda x: x.table_number):
-            ns_name = team_by_id.get(tbl.ns_team_id, "?")
-            ew_name = team_by_id.get(tbl.ew_team_id, "?")
-            tables.append({
-                "table_number": tbl.table_number,
-                "ns_name": ns_name,
-                "ew_name": ew_name,
-            })
-        schedule.append({
-            "round_number": rnd.round_number,
-            "tables": tables,
-        })
+    tournament, path, err = _get_tournament_or_error(tour_id, json_response=False)
+    if err:
+        return err[0], err[1]
+    schedule = schedule_view_data(tournament)
     return render_template(
         "tournament_schedule.html",
         tour_id=tour_id,
@@ -98,16 +134,12 @@ def tournament_schedule_page(tour_id: str):
 
 
 @bp.route("/tournament/<tour_id>/rounds/<int:round_id>/ranking")
-def round_ranking_placeholder(tour_id: str, round_id: int):
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return render_template("404.html"), 404
-    return render_template(
-        "placeholder.html",
-        tour_id=tour_id,
-        title="Ranking",
-        message="Strona „Ranking” będzie dostępna w kolejnej wersji.",
-    )
+def round_ranking_redirect(tour_id: str, round_id: int):
+    """Redirect to rounds page with ranking tab for this round (ranking is shown there)."""
+    _path, err = _require_tournament_path(tour_id)
+    if err:
+        return err[0], err[1]
+    return redirect(url_for("api.tournament_rounds_page", tour_id=tour_id, round=round_id, view="standings"))
 
 
 # --- Settings ---
@@ -139,10 +171,9 @@ def list_tournaments():
 
 @bp.route("/api/tournaments/<tour_id>", methods=["GET"])
 def get_tournament(tour_id: str):
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return jsonify({"error": "Not found"}), 404
-    tournament = load_tournament(path)
+    tournament, path, err = _get_tournament_or_error(tour_id, json_response=True)
+    if err:
+        return err[0], err[1]
     teams_data = [
         {"name": t.name, "member1": t.member1.name, "member2": t.member2.name}
         for t in tournament.teams
@@ -159,10 +190,9 @@ def get_tournament(tour_id: str):
 
 @bp.route("/api/tournaments/<tour_id>/rounds", methods=["GET"])
 def get_tournament_rounds(tour_id: str):
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return jsonify({"error": "Not found"}), 404
-    tournament = load_tournament(path)
+    tournament, path, err = _get_tournament_or_error(tour_id, json_response=True)
+    if err:
+        return err[0], err[1]
     team_by_id = {t.id: {"id": t.id, "name": t.name} for t in tournament.teams}
     rounds_data = []
     for rnd in tournament.rounds:
@@ -214,13 +244,13 @@ def get_tournament_rounds(tour_id: str):
 
 @bp.route("/api/tournaments/<tour_id>/rounds/<int:round_id>/deal-results", methods=["GET"])
 def get_round_deal_results(tour_id: str, round_id: int):
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return jsonify({"error": "Not found"}), 404
-    tournament = load_tournament(path)
-    rnd, deals_with_tables = round_results_view_data(tournament, round_id)
-    if not rnd:
-        return jsonify({"error": "Round not found"}), 404
+    tournament, path, err = _get_tournament_or_error(tour_id, json_response=True)
+    if err:
+        return err[0], err[1]
+    rnd, err_r = _get_round_or_error(tournament, round_id)
+    if err_r:
+        return err_r[0], err_r[1]
+    _, deals_with_tables = round_results_view_data(tournament, round_id)
     out = [
         {
             "deal": {"number": item["deal"].number, "dealer": item["deal"].dealer, "vulnerability": item["deal"].vulnerability},
@@ -234,13 +264,13 @@ def get_round_deal_results(tour_id: str, round_id: int):
 @bp.route("/api/tournaments/<tour_id>/rounds/<int:round_id>/ranking", methods=["GET"])
 def get_round_ranking(tour_id: str, round_id: int):
     """Return cumulative IMP ranking for the round. Requires all deal results to be saved."""
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return jsonify({"error": "Not found"}), 404
-    tournament = load_tournament(path)
-    rnd, ranking, round_numbers, error_message = round_ranking_data(tournament, round_id)
-    if not rnd:
-        return jsonify({"error": "Round not found"}), 404
+    tournament, path, err = _get_tournament_or_error(tour_id, json_response=True)
+    if err:
+        return err[0], err[1]
+    rnd, err_r = _get_round_or_error(tournament, round_id)
+    if err_r:
+        return err_r[0], err_r[1]
+    _, ranking, round_numbers, error_message = round_ranking_data(tournament, round_id)
     payload = {"round_number": rnd.round_number}
     if error_message:
         payload["error_message"] = error_message
@@ -255,13 +285,13 @@ def get_round_ranking(tour_id: str, round_id: int):
 @bp.route("/api/tournaments/<tour_id>/rounds/<int:round_id>/head-to-head", methods=["GET"])
 def get_round_head_to_head(tour_id: str, round_id: int):
     """Return head-to-head IMP matrix: IMP each team scored vs each opponent (cumulative up to round)."""
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return jsonify({"error": "Not found"}), 404
-    tournament = load_tournament(path)
-    rnd, error_message, team_names, matrix = round_head_to_head_data(tournament, round_id)
-    if not rnd:
-        return jsonify({"error": "Round not found"}), 404
+    tournament, path, err = _get_tournament_or_error(tour_id, json_response=True)
+    if err:
+        return err[0], err[1]
+    rnd, err_r = _get_round_or_error(tournament, round_id)
+    if err_r:
+        return err_r[0], err_r[1]
+    _, error_message, team_names, matrix = round_head_to_head_data(tournament, round_id)
     payload = {"round_number": rnd.round_number}
     if error_message:
         payload["error_message"] = error_message
@@ -322,14 +352,14 @@ def validate_result():
 
 @bp.route("/api/tournaments/<tour_id>/round-results", methods=["POST"])
 def save_round_results(tour_id: str):
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return jsonify({"error": "Not found"}), 404
+    tournament, path, err = _get_tournament_or_error(tour_id, json_response=True)
+    if err:
+        return err[0], err[1]
     body = request.get_json(force=True, silent=True) or {}
     round_id = body.get("round_id")
     results_list = body.get("results") or []
     if round_id is None:
-        return jsonify({"error": "round_id required"}), 400
+        return jsonify({"error": "Wymagane jest podanie identyfikatora rundy (round_id)."}), 400
     round_id = int(round_id)
 
     validated = []
@@ -338,7 +368,7 @@ def save_round_results(tour_id: str):
         table_number = item.get("table_number")
         deal_id = item.get("deal_id")
         if table_number is None or deal_id is None:
-            out_results.append({"ok": False, "error": "table_number and deal_id required", "field": "contract"})
+            out_results.append({"ok": False, "error": "Wymagane są numer stolika (table_number) i identyfikator rozdania (deal_id).", "field": "contract"})
             validated.append(None)
             continue
         table_number = int(table_number)
@@ -365,10 +395,9 @@ def save_round_results(tour_id: str):
             })
             out_results.append(None)
 
-    tournament = load_tournament(path)
-    rnd = next((r for r in tournament.rounds if r.id == round_id), None)
-    if not rnd:
-        return jsonify({"error": "Round not found"}), 404
+    rnd, err_r = _get_round_or_error(tournament, round_id)
+    if err_r:
+        return err_r[0], err_r[1]
 
     saved_count = 0
     for idx, v in enumerate(validated):
@@ -429,19 +458,20 @@ def create_tournament():
 
 @bp.route("/api/tournaments/<tour_id>/archive", methods=["POST"])
 def archive_tournament(tour_id: str):
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return jsonify({"ok": False, "error": "Not found"}), 404
-    tournament = load_tournament(path)
+    tournament, path, err = _get_tournament_or_error(tour_id, json_response=True)
+    if err:
+        return err[0], err[1]
     save_tournament(tournament, path, cycles=load_tournament_cycles(path), archived=True)
     return jsonify({"ok": True})
 
 
 @bp.route("/api/tournaments/<tour_id>", methods=["PUT"])
 def update_tournament(tour_id: str):
-    path = _tournament_path(tour_id)
-    if not path or not path.exists():
-        return jsonify({"ok": False, "errors": ["Turniej nie istnieje."]}), 404
+    _tournament, path, err = _get_tournament_or_error(tour_id, json_response=True)
+    if err:
+        if err[1] == 404:
+            return jsonify({"ok": False, "errors": ["Turniej nie istnieje."]}), 404
+        return err[0], err[1]
     body = request.get_json(force=True, silent=True) or {}
     data, errors = parse_tournament_payload(body)
     if errors:

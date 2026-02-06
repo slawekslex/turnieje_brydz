@@ -24,19 +24,19 @@ def parse_tournament_payload(body: dict) -> tuple[Any, list]:
     errors = []
 
     if not name:
-        errors.append("Name is required.")
+        errors.append("Nazwa jest wymagana.")
     if not date_str:
-        errors.append("Date is required.")
+        errors.append("Data jest wymagana.")
     else:
         try:
             tournament_date = date.fromisoformat(date_str)
         except ValueError:
-            errors.append("Invalid date; use YYYY-MM-DD.")
+            errors.append("Nieprawidłowa data; użyj formatu RRRR-MM-DD.")
             tournament_date = None
     if len(teams_data) < 2:
-        errors.append("At least 2 teams are required.")
+        errors.append("Wymagane są co najmniej 2 drużyny.")
     if len(teams_data) % 2 != 0:
-        errors.append("Number of teams must be even.")
+        errors.append("Liczba drużyn musi być parzysta.")
 
     if errors:
         return None, errors
@@ -47,11 +47,11 @@ def parse_tournament_payload(body: dict) -> tuple[Any, list]:
         m1 = (t.get("member1") or "").strip()
         m2 = (t.get("member2") or "").strip()
         if not team_name:
-            errors.append(f"Team {i + 1}: name is required.")
+            errors.append(f"Drużyna {i + 1}: nazwa jest wymagana.")
         if not m1:
-            errors.append(f"Team {i + 1}: member 1 name is required.")
+            errors.append(f"Drużyna {i + 1}: członek 1 jest wymagany.")
         if not m2:
-            errors.append(f"Team {i + 1}: member 2 name is required.")
+            errors.append(f"Drużyna {i + 1}: członek 2 jest wymagany.")
         if team_name and m1 and m2:
             teams.append(
                 Team(
@@ -62,6 +62,20 @@ def parse_tournament_payload(body: dict) -> tuple[Any, list]:
                 )
             )
     if errors:
+        return None, errors
+
+    # Duplicate team names
+    names = [t.name for t in teams]
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for n in names:
+        if n in seen and n not in duplicates:
+            duplicates.append(n)
+        seen.add(n)
+    if duplicates:
+        errors.append(
+            "Dwie lub więcej drużyn mają tę samą nazwę: " + ", ".join(duplicates) + "."
+        )
         return None, errors
 
     num_rounds_raw = body.get("num_rounds")

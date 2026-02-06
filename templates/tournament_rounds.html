@@ -30,6 +30,13 @@
     </div>
   </div>
   <div class="container">
+    <nav class="breadcrumb" aria-label="Nawigacja">
+      <ol class="breadcrumb-list">
+        <li><a href="{{ url_for('api.index') }}">Lista turniejów</a></li>
+        <li><a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}"><span id="breadcrumb-tournament-name">…</span></a></li>
+        <li aria-current="page">Rundy</li>
+      </ol>
+    </nav>
     <header>
       <h1 id="tournament-title">Rundy</h1>
       <div class="header-actions">
@@ -55,6 +62,7 @@
             <span class="round-detail-caption" id="round-detail-caption"></span>
             <span id="round-detail-edit-actions" class="round-detail-actions">
               <button type="button" class="btn btn-primary btn-save-round" id="btn-save-round">Zapisz rundę</button>
+              <span class="save-round-hint muted" aria-hidden="true">Ctrl+S</span>
               <button type="button" class="btn btn-secondary btn-sm" id="btn-auto-round">Auto</button>
               <span id="save-round-status" class="save-round-status" aria-live="polite"></span>
             </span>

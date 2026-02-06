@@ -71,7 +71,7 @@ def round_ranking_data(tournament: Tournament, round_id: int):
     """
     rnd = next((r for r in tournament.rounds if r.id == round_id), None)
     if not rnd:
-        return None, None, None, "Round not found"
+        return None, None, None, "Runda nie znaleziona"
     rounds_to_include = [r for r in tournament.rounds if r.round_number <= rnd.round_number]
     round_numbers = [r.round_number for r in rounds_to_include]
     # Collect all team names that appear in any round (for byes we use 0)
@@ -85,7 +85,7 @@ def round_ranking_data(tournament: Tournament, round_id: int):
                 ns_imp = row.get("ns_imp")
                 ew_imp = row.get("ew_imp")
                 if ns_imp is None or ew_imp is None:
-                    return rnd, None, None, "Not all results saved for rounds 1–" + str(rnd.round_number)
+                    return rnd, None, None, "Nie wszystkie wyniki są zapisane w rundach 1–" + str(rnd.round_number)
                 ns_team = (row.get("ns_team") or "").strip() or "?"
                 ew_team = (row.get("ew_team") or "").strip() or "?"
                 round_imp_for_team[ns_team] = round_imp_for_team.get(ns_team, 0) + ns_imp
@@ -120,7 +120,7 @@ def round_head_to_head_data(tournament: Tournament, round_id: int):
     """
     rnd = next((r for r in tournament.rounds if r.id == round_id), None)
     if not rnd:
-        return None, "Round not found", [], []
+        return None, "Runda nie znaleziona", [], []
     rounds_to_include = [r for r in tournament.rounds if r.round_number <= rnd.round_number]
     # h2h[team_a][team_b] = IMP that team_a scored when playing vs team_b
     h2h: dict[str, dict[str, int]] = {}
@@ -134,7 +134,7 @@ def round_head_to_head_data(tournament: Tournament, round_id: int):
                 ns_imp = row.get("ns_imp")
                 ew_imp = row.get("ew_imp")
                 if ns_imp is None or ew_imp is None:
-                    return rnd, "Not all results saved for rounds 1–" + str(rnd.round_number), [], []
+                    return rnd, "Nie wszystkie wyniki są zapisane w rundach 1–" + str(rnd.round_number), [], []
                 ns_team = (row.get("ns_team") or "").strip() or "?"
                 ew_team = (row.get("ew_team") or "").strip() or "?"
                 if tn not in tables_by_num:
