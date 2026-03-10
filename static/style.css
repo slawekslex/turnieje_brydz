@@ -977,6 +977,12 @@ a.btn {
   align-items: center;
   gap: 0.35rem;
   flex-shrink: 0;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border-strong, #e5e7eb);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .box-info__num {
@@ -984,12 +990,12 @@ a.btn {
   align-items: center;
   justify-content: center;
   min-width: 1.5rem;
-  padding: 0.2rem 0.4rem;
+  padding: 0.1rem 0.35rem;
   font-size: 0.8125rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.2;
   color: #fff;
-  background: var(--accent, #2563eb);
+  background: #2563eb;
   border-radius: 4px;
 }
 
