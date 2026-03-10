@@ -13,27 +13,35 @@
   const teamsSectionToggle = document.getElementById('teams-section-toggle');
   const numRoundsInput = document.getElementById('tournament-num-rounds');
   const dealsPerRoundInput = document.getElementById('tournament-deals-per-round');
+  const numberOfBoxesInput = document.getElementById('tournament-number-of-boxes');
   const roundsWarning = document.getElementById('rounds-warning');
   const roundsTotalsValue = document.getElementById('rounds-totals');
   const inProgressHint = document.getElementById('in-progress-hint');
 
   function setInProgressLock(hasResults) {
-    if (inProgressHint) inProgressHint.classList.toggle('hidden', !hasResults);
-    if (btnAddTeam) {
-      btnAddTeam.disabled = !!hasResults;
-      btnAddTeam.title = hasResults ? 'Nie można dodać drużyny, gdy turniej ma zapisane wyniki.' : '';
+    if (inProgressHint) {
+      inProgressHint.classList.toggle('hidden', !hasResults);
+      inProgressHint.textContent = hasResults
+        ? 'Turniej ma zapisane wyniki. Zmiana nazwy drużyn lub dodanie rund zachowa wyniki. Dodanie/usunięcie drużyny, zmniejszenie rund lub zmiana rozdań na rundę wyczyści wyniki (zostaniesz poproszony o potwierdzenie).'
+        : '';
     }
-    teamsContainer.querySelectorAll('.btn-remove-team').forEach(function (btn) {
-      btn.disabled = !!hasResults;
-      btn.title = hasResults ? 'Nie można usunąć drużyny, gdy turniej ma zapisane wyniki.' : '';
-    });
+    if (btnAddTeam) {
+      btnAddTeam.disabled = false;
+      btnAddTeam.title = hasResults ? 'Dodanie drużyny wyczyści zapisane wyniki (potwierdzenie przy zapisie).' : '';
+    }
+    if (teamsContainer) {
+      teamsContainer.querySelectorAll('.btn-remove-team').forEach(function (btn) {
+        btn.disabled = false;
+        btn.title = hasResults ? 'Usunięcie drużyny wyczyści zapisane wyniki (potwierdzenie przy zapisie).' : '';
+      });
+    }
     if (numRoundsInput) {
       numRoundsInput.disabled = false;
-      numRoundsInput.title = hasResults ? 'Możesz zwiększyć liczbę rund lub zmniejszyć, jeśli usuwane rundy nie mają wyników.' : '';
+      numRoundsInput.title = hasResults ? 'Możesz zwiększyć liczbę rund (zachowa wyniki) lub zmniejszyć (wymaga potwierdzenia, jeśli usuwane rundy mają wyniki).' : '';
     }
     if (dealsPerRoundInput) {
-      dealsPerRoundInput.disabled = !!hasResults;
-      dealsPerRoundInput.title = hasResults ? 'Nie można zmieniać liczby rozdań na rundę.' : '';
+      dealsPerRoundInput.disabled = false;
+      dealsPerRoundInput.title = hasResults ? 'Zmiana liczby rozdań na rundę wyczyści zapisane wyniki (potwierdzenie przy zapisie).' : '';
     }
   }
 
@@ -174,35 +182,41 @@
     updateTeamsSectionTitle();
   });
 
-  form.addEventListener('submit', function (e) {
-    e.preventDefault();
-    formErrors.classList.add('hidden');
-    formSuccess.classList.add('hidden');
-
+  function buildPayload() {
     const name = (document.getElementById('tournament-name').value || '').trim();
     const date = document.getElementById('tournament-date').value;
     const teams = collectTeams();
     const numRounds = parseInt(numRoundsInput && numRoundsInput.value !== '' ? numRoundsInput.value : '0', 10);
     const dealsPerRound = parseInt(dealsPerRoundInput && dealsPerRoundInput.value !== '' ? dealsPerRoundInput.value : '2', 10);
-    if (isNaN(numRounds) || numRounds < 0) {
-      formErrors.textContent = 'Podaj prawidłową liczbę rund (0 lub więcej).';
-      formErrors.classList.remove('hidden');
-      return;
-    }
+    const numberOfBoxes = parseInt(numberOfBoxesInput && numberOfBoxesInput.value !== '' ? numberOfBoxesInput.value : '1', 10);
+    return {
+      name: name,
+      date: date,
+      teams: teams,
+      num_rounds: isNaN(numRounds) ? 0 : Math.max(0, numRounds),
+      deals_per_round: isNaN(dealsPerRound) ? 2 : Math.max(0, dealsPerRound),
+      number_of_boxes: isNaN(numberOfBoxes) ? 1 : Math.max(1, numberOfBoxes)
+    };
+  }
 
-    fetch('/api/tournaments/' + encodeURIComponent(tourId), {
+  function doSubmit(payload, confirmClearResults) {
+    if (confirmClearResults) {
+      payload = Object.assign({}, payload, { confirm_clear_results: true });
+    }
+    return fetch('/api/tournaments/' + encodeURIComponent(tourId), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: name,
-        date: date,
-        teams: teams,
-        num_rounds: isNaN(numRounds) ? 0 : Math.max(0, numRounds),
-        deals_per_round: isNaN(dealsPerRound) ? 2 : Math.max(0, dealsPerRound)
-      })
+      body: JSON.stringify(payload)
     })
       .then(function (res) { return res.json().then(function (data) { return { res: res, data: data }; }); })
       .then(function (result) {
+        if (result.res.status === 409 && result.data.breaking_change) {
+          var msg = (result.data.message || 'Ta zmiana usunie zapisane wyniki.') + '\n\n' + (result.data.errors || []).join('\n');
+          if (!window.confirm(msg + '\n\nKontynuować i wyczyścić wyniki?')) {
+            return;
+          }
+          return doSubmit(buildPayload(), true);
+        }
         if (!result.res.ok) {
           const err = result.data;
           const msg = (err.errors && err.errors.length) ? err.errors.join('\n') : 'Wystąpił błąd.';
@@ -217,6 +231,21 @@
         formErrors.textContent = 'Błąd połączenia. Spróbuj ponownie.';
         formErrors.classList.remove('hidden');
       });
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    formErrors.classList.add('hidden');
+    formSuccess.classList.add('hidden');
+
+    const payload = buildPayload();
+    if (payload.num_rounds < 0) {
+      formErrors.textContent = 'Podaj prawidłową liczbę rund (0 lub więcej).';
+      formErrors.classList.remove('hidden');
+      return;
+    }
+
+    doSubmit(payload, false);
   });
 
   fetch('/api/tournaments/' + encodeURIComponent(tourId))
@@ -248,6 +277,7 @@
       }
       if (numRoundsInput) numRoundsInput.value = data.num_rounds != null ? String(data.num_rounds) : '3';
       if (dealsPerRoundInput) dealsPerRoundInput.value = data.deals_per_round != null ? String(data.deals_per_round) : '2';
+      if (numberOfBoxesInput) numberOfBoxesInput.value = data.number_of_boxes != null ? String(data.number_of_boxes) : '1';
       updateRoundsSummary();
       setInProgressLock(!!data.has_results);
       form.classList.remove('hidden');

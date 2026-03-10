@@ -16,6 +16,7 @@ from bridge.models.round_models import (
     TableAssignment,
     Team,
     TeamMember,
+    box_for_deal,
 )
 
 
@@ -23,17 +24,21 @@ from bridge.models.round_models import (
 class Tournament:
     """
     A bridge tournament: name, date, all teams, and rounds
-    (structure + deals + results).
+    (structure + deals + results). number_of_boxes is how many
+    boxes are used for deals.
     """
 
     name: str
     date: date
     teams: List[Team]
     rounds: List[Round]
+    number_of_boxes: int = 1
 
     def __post_init__(self) -> None:
         if not self.name.strip():
             raise ValueError("Tournament name must be non-empty")
+        if self.number_of_boxes < 1:
+            raise ValueError("number_of_boxes must be at least 1")
 
 
 # --- Serialization helpers (round_models -> JSON-serializable dict) ---
@@ -66,23 +71,17 @@ def _team_from_dict(d: Dict[str, Any]) -> Team:
 
 
 def _deal_to_dict(deal: Deal) -> Dict[str, Any]:
-    return {
-        "id": deal.id,
-        "number": deal.number,
-        "dealer": deal.dealer,
-        "vulnerability": deal.vulnerability,
-    }
+    return {"id": deal.id, "box": deal.box}
 
 
-def _deal_from_dict(d: Dict[str, Any]) -> Deal:
-    # Backward compatibility: accept legacy "declarer" key for dealer
-    dealer = d.get("dealer") or d.get("declarer") or "N"
-    return Deal(
-        id=d["id"],
-        number=d["number"],
-        dealer=dealer,
-        vulnerability=d["vulnerability"],
-    )
+def _deal_from_dict(d: Dict[str, Any], number_of_boxes: int = 1) -> Deal:
+    number_of_boxes = max(1, number_of_boxes)
+    if "box" in d:
+        return Deal(id=d["id"], box=max(1, int(d["box"])))
+    # Backward compatibility: old format had number, dealer, vulnerability
+    board_number = d.get("number") or d["id"]
+    box = box_for_deal(int(board_number), number_of_boxes)
+    return Deal(id=d["id"], box=box)
 
 
 def _table_assignment_to_dict(ta: TableAssignment) -> Dict[str, Any]:
@@ -166,12 +165,12 @@ def _round_to_dict(rnd: Round) -> Dict[str, Any]:
     }
 
 
-def _round_from_dict(d: Dict[str, Any]) -> Round:
+def _round_from_dict(d: Dict[str, Any], number_of_boxes: int = 1) -> Round:
     return Round(
         id=d["id"],
         round_number=d["round_number"],
         tables=[_table_assignment_from_dict(t) for t in d["tables"]],
-        deals=[_deal_from_dict(de) for de in d["deals"]],
+        deals=[_deal_from_dict(de, number_of_boxes) for de in d["deals"]],
         results_by_table_deal=_results_by_table_deal_from_dict(
             d["results_by_table_deal"]
         ),
@@ -185,14 +184,17 @@ def tournament_to_dict(t: Tournament) -> Dict[str, Any]:
         "date": t.date.isoformat(),
         "teams": [_team_to_dict(team) for team in t.teams],
         "rounds": [_round_to_dict(rnd) for rnd in t.rounds],
+        "number_of_boxes": t.number_of_boxes,
     }
 
 
 def tournament_from_dict(d: Dict[str, Any]) -> Tournament:
     """Build a Tournament from a dict (e.g. loaded from JSON)."""
+    number_of_boxes = max(1, int(d.get("number_of_boxes", 1)))
     return Tournament(
         name=d["name"],
         date=date.fromisoformat(d["date"]),
         teams=[_team_from_dict(t) for t in d["teams"]],
-        rounds=[_round_from_dict(r) for r in d["rounds"]],
+        rounds=[_round_from_dict(r, number_of_boxes) for r in d["rounds"]],
+        number_of_boxes=number_of_boxes,
     )

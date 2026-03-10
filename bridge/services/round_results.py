@@ -98,9 +98,12 @@ def round_ranking_data(tournament: Tournament, round_id: int):
         total = sum(round_imps)
         team_imps[name] = total
         team_round_imps[name] = round_imps
+    team_members = {t.name: (t.member1.name, t.member2.name) for t in tournament.teams}
     ranking = [
         {
             "team_name": name,
+            "member1": team_members.get(name, ("", ""))[0],
+            "member2": team_members.get(name, ("", ""))[1],
             "total_imp": total,
             "round_imps": team_round_imps[name],
         }

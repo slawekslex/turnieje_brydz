@@ -9,6 +9,8 @@ from bridge.models.round_models import (
     TableAssignment,
     Team,
     TeamMember,
+    box_for_deal,
+    deal_dealer_vulnerability,
     deal_from_board_number,
     standard_16_board_deal_sequence,
 )
@@ -28,6 +30,8 @@ __all__ = [
     "TeamMember",
     "Tournament",
     "VULNERABILITIES",
+    "box_for_deal",
+    "deal_dealer_vulnerability",
     "deal_from_board_number",
     "standard_16_board_deal_sequence",
     "tournament_from_dict",

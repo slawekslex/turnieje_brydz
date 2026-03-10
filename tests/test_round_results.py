@@ -30,7 +30,7 @@ def _make_teams(n: int):
 
 
 def _make_deal(deal_id: int) -> Deal:
-    return Deal(id=deal_id, number=deal_id, dealer="N", vulnerability="None")
+    return Deal(id=deal_id, box=1)
 
 
 class TestRoundResultsViewData(unittest.TestCase):

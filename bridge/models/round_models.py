@@ -12,6 +12,29 @@ DECLARERS = ("N", "E", "S", "W")
 # Valid vulnerability (bridge: None, N-S, E-W, Both)
 VULNERABILITIES = ("None", "N-S", "E-W", "Both")
 
+# Standard board cycle: (dealer, vulnerability) per position.
+# For 1–16 boxes we use the first N entries; tournaments with number_of_boxes N
+# derive dealer/vuln from deal_dealer_vulnerability(box, number_of_boxes).
+BOARD_DEAL_CYCLE: Tuple[Tuple[str, str], ...] = (
+    ("N", "None"),   # 1
+    ("E", "N-S"),    # 2
+    ("S", "E-W"),    # 3
+    ("W", "Both"),   # 4
+    ("N", "N-S"),    # 5
+    ("E", "E-W"),    # 6
+    ("S", "Both"),   # 7
+    ("W", "None"),   # 8
+    ("N", "E-W"),    # 9
+    ("E", "Both"),   # 10
+    ("S", "None"),   # 11
+    ("W", "N-S"),    # 12
+    ("N", "N-S"),   # 13
+    ("E", "E-W"),   # 14
+    ("S", "Both"),   # 15
+    ("W", "None"),   # 16
+)
+MAX_CYCLE_LEN = len(BOARD_DEAL_CYCLE)
+
 
 @dataclass
 class TeamMember:
@@ -48,59 +71,68 @@ class Team:
 
 @dataclass
 class Deal:
-    """Represents a single deal (board) in a round."""
+    """
+    A single deal (board) in a round. Stores only identity and physical box.
+    Dealer and vulnerability are derived from box and tournament number_of_boxes
+    via deal_dealer_vulnerability(box, number_of_boxes), using a short cycle
+    (first N entries of the standard pattern when using N boxes).
+    """
 
     id: DealId
-    number: int
-    dealer: str  # N, S, E, or W (who deals the cards for this board)
-    vulnerability: str
+    box: int  # Physical box 1..number_of_boxes
 
     def __post_init__(self) -> None:
-        if not isinstance(self.number, int):
-            raise TypeError("Deal.number must be an integer")
-        if self.number < 1:
-            raise ValueError("Deal.number must be >= 1")
-        if not isinstance(self.dealer, str):
-            raise TypeError("Deal.dealer must be a string")
-        if self.dealer not in DECLARERS:
-            raise ValueError(
-                f"Deal.dealer must be one of {DECLARERS}, got {self.dealer!r}"
-            )
-        if not isinstance(self.vulnerability, str):
-            raise TypeError("Deal.vulnerability must be a string")
-        if self.vulnerability not in VULNERABILITIES:
-            raise ValueError(
-                f"Deal.vulnerability must be one of {VULNERABILITIES}, "
-                f"got {self.vulnerability!r}"
-            )
+        if not isinstance(self.box, int) or self.box < 1:
+            raise ValueError("Deal.box must be an integer >= 1")
 
 
-def deal_from_board_number(board_id: int) -> Deal:
+def deal_dealer_vulnerability(box: int, number_of_boxes: int) -> Tuple[str, str]:
     """
-    Create a valid Deal for a given board number with standard bridge
-    dealer and vulnerability cycling (board 1 = N/None, 2 = E/N-S, etc.).
+    Dealer and vulnerability for a deal from its box and tournament box count.
+    Uses a cycle of length min(16, number_of_boxes): e.g. 4 boxes use the
+    first 4 entries of the standard pattern; 16 boxes use all 16.
     """
-    return Deal(
-        id=board_id,
-        number=board_id,
-        dealer=DECLARERS[(board_id - 1) % 4],
-        vulnerability=VULNERABILITIES[(board_id - 1) % 4],
-    )
+    if number_of_boxes < 1:
+        raise ValueError("number_of_boxes must be >= 1")
+    cycle_len = min(MAX_CYCLE_LEN, number_of_boxes)
+    idx = (box - 1) % cycle_len
+    return BOARD_DEAL_CYCLE[idx]
 
 
-def standard_16_board_deal_sequence(start_id: int = 1) -> Iterator[Deal]:
+def box_for_deal(deal_number: int, number_of_boxes: int) -> int:
     """
-    Infinite generator of deals using the standard 16-board (4-box) setup:
-    dealer and vulnerability rotate every 4 boards (N/None, E/N-S, S/E-W, W/Both).
-    Boards 1–16 form one standard set; the same rotation repeats for 17–32, etc.
+    Physical box index (1..number_of_boxes) for a deal by its global board number.
+    Boxes cycle 1, 2, …, number_of_boxes, 1, 2, …
+    """
+    if number_of_boxes < 1:
+        raise ValueError("number_of_boxes must be >= 1")
+    return ((deal_number - 1) % number_of_boxes) + 1
 
-    Args:
-        start_id: First board number to yield (must be >= 1).
+
+def deal_from_board_number(board_id: int, number_of_boxes: int = 1) -> Deal:
+    """
+    Create a Deal for a given global board number. Box is cycled 1..number_of_boxes.
+    Dealer/vulnerability are derived from box via deal_dealer_vulnerability when needed.
+    """
+    if board_id < 1:
+        raise ValueError("board_id must be >= 1")
+    number_of_boxes = max(1, number_of_boxes)
+    box = box_for_deal(board_id, number_of_boxes)
+    return Deal(id=board_id, box=box)
+
+
+def standard_16_board_deal_sequence(
+    start_id: int = 1, number_of_boxes: int = 1
+) -> Iterator[Deal]:
+    """
+    Infinite generator of deals. Box cycles 1..number_of_boxes; dealer/vuln
+    are derived from box and number_of_boxes when needed.
     """
     if start_id < 1:
         raise ValueError("start_id must be >= 1")
+    number_of_boxes = max(1, number_of_boxes)
     for board_id in itertools.count(start_id):
-        yield deal_from_board_number(board_id)
+        yield deal_from_board_number(board_id, number_of_boxes)
 
 
 @dataclass

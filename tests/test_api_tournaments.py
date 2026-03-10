@@ -102,6 +102,45 @@ def test_get_tournament(client):
     assert len(data["teams"]) == 2
     assert data["teams"][0]["name"] == "T1"
     assert "cycles" in data
+    assert "has_results" in data
+    assert data["has_results"] is False
+
+
+def test_get_tournament_has_results_true_after_saving_results(client):
+    payload = {
+        "name": "Has Results Test",
+        "date": "2025-08-02",
+        "teams": [
+            {"name": "T1", "member1": "M1a", "member2": "M1b"},
+            {"name": "T2", "member1": "M2a", "member2": "M2b"},
+        ],
+        "num_rounds": 1,
+        "deals_per_round": 1,
+    }
+    cr = client.post("/api/tournaments", json=payload)
+    tour_id = cr.get_json()["id"]
+    r = client.get(f"/api/tournaments/{tour_id}")
+    assert r.status_code == 200
+    assert r.get_json()["has_results"] is False
+    rounds_r = client.get(f"/api/tournaments/{tour_id}/rounds")
+    rnd = rounds_r.get_json()["rounds"][0]
+    client.post(
+        f"/api/tournaments/{tour_id}/round-results",
+        json={
+            "round_id": rnd["round_id"],
+            "results": [{
+                "table_number": rnd["tables"][0]["table_number"],
+                "deal_id": rnd["deals"][0]["id"],
+                "contract": "1NT",
+                "declarer": "N",
+                "opening_lead": "2H",
+                "tricks_taken": 7,
+            }],
+        },
+    )
+    r2 = client.get(f"/api/tournaments/{tour_id}")
+    assert r2.status_code == 200
+    assert r2.get_json()["has_results"] is True
 
 
 def test_get_tournament_404(client):
@@ -269,3 +308,155 @@ def test_round_results_400_missing_round_id(client):
     )
     assert r.status_code == 400
     assert "error" in r.get_json()
+
+
+def test_update_tournament_breaking_without_confirm_returns_409(client):
+    """Adding a team (breaking change) without confirm_clear_results returns 409."""
+    payload = {
+        "name": "Break Test",
+        "date": "2025-06-01",
+        "teams": [
+            {"name": "A", "member1": "A1", "member2": "A2"},
+            {"name": "B", "member1": "B1", "member2": "B2"},
+        ],
+        "num_rounds": 1,
+        "deals_per_round": 1,
+    }
+    cr = client.post("/api/tournaments", json=payload)
+    tour_id = cr.get_json()["id"]
+    rounds_r = client.get(f"/api/tournaments/{tour_id}/rounds")
+    rnd = rounds_r.get_json()["rounds"][0]
+    client.post(
+        f"/api/tournaments/{tour_id}/round-results",
+        json={
+            "round_id": rnd["round_id"],
+            "results": [{
+                "table_number": rnd["tables"][0]["table_number"],
+                "deal_id": rnd["deals"][0]["id"],
+                "contract": "1NT",
+                "declarer": "N",
+                "opening_lead": "2H",
+                "tricks_taken": 7,
+            }],
+        },
+    )
+    put_payload = {
+        "name": "Break Test",
+        "date": "2025-06-01",
+        "teams": [
+            {"name": "A", "member1": "A1", "member2": "A2"},
+            {"name": "B", "member1": "B1", "member2": "B2"},
+            {"name": "C", "member1": "C1", "member2": "C2"},
+        ],
+        "num_rounds": 1,
+        "deals_per_round": 1,
+    }
+    r = client.put(
+        f"/api/tournaments/{tour_id}",
+        json=put_payload,
+    )
+    assert r.status_code == 409
+    data = r.get_json()
+    assert data.get("ok") is False
+    assert data.get("breaking_change") is True
+    assert "errors" in data
+    assert len(data["errors"]) > 0
+
+
+def test_update_tournament_breaking_with_confirm_clears_results(client):
+    """Breaking change with confirm_clear_results saves and clears results."""
+    payload = {
+        "name": "Confirm Clear",
+        "date": "2025-06-01",
+        "teams": [
+            {"name": "A", "member1": "A1", "member2": "A2"},
+            {"name": "B", "member1": "B1", "member2": "B2"},
+        ],
+        "num_rounds": 1,
+        "deals_per_round": 1,
+    }
+    cr = client.post("/api/tournaments", json=payload)
+    tour_id = cr.get_json()["id"]
+    rounds_r = client.get(f"/api/tournaments/{tour_id}/rounds")
+    rnd = rounds_r.get_json()["rounds"][0]
+    client.post(
+        f"/api/tournaments/{tour_id}/round-results",
+        json={
+            "round_id": rnd["round_id"],
+            "results": [{
+                "table_number": rnd["tables"][0]["table_number"],
+                "deal_id": rnd["deals"][0]["id"],
+                "contract": "1NT",
+                "declarer": "N",
+                "opening_lead": "2H",
+                "tricks_taken": 7,
+            }],
+        },
+    )
+    put_payload = {
+        "name": "Confirm Clear",
+        "date": "2025-06-01",
+        "teams": [
+            {"name": "A", "member1": "A1", "member2": "A2"},
+            {"name": "B", "member1": "B1", "member2": "B2"},
+            {"name": "C", "member1": "C1", "member2": "C2"},
+        ],
+        "num_rounds": 1,
+        "deals_per_round": 1,
+        "confirm_clear_results": True,
+    }
+    r = client.put(f"/api/tournaments/{tour_id}", json=put_payload)
+    assert r.status_code == 200
+    assert r.get_json().get("ok") is True
+    get_r = client.get(f"/api/tournaments/{tour_id}")
+    assert get_r.get_json()["has_results"] is False
+    assert len(get_r.get_json()["teams"]) == 3
+
+
+def test_update_tournament_non_breaking_preserves_results(client):
+    """Changing team name (non-breaking) preserves results."""
+    payload = {
+        "name": "Preserve Test",
+        "date": "2025-06-01",
+        "teams": [
+            {"name": "Team Alpha", "member1": "A1", "member2": "A2"},
+            {"name": "Team Beta", "member1": "B1", "member2": "B2"},
+        ],
+        "num_rounds": 1,
+        "deals_per_round": 1,
+    }
+    cr = client.post("/api/tournaments", json=payload)
+    tour_id = cr.get_json()["id"]
+    rounds_r = client.get(f"/api/tournaments/{tour_id}/rounds")
+    rnd = rounds_r.get_json()["rounds"][0]
+    client.post(
+        f"/api/tournaments/{tour_id}/round-results",
+        json={
+            "round_id": rnd["round_id"],
+            "results": [{
+                "table_number": rnd["tables"][0]["table_number"],
+                "deal_id": rnd["deals"][0]["id"],
+                "contract": "2S",
+                "declarer": "S",
+                "opening_lead": "3H",
+                "tricks_taken": 8,
+            }],
+        },
+    )
+    put_payload = {
+        "name": "Preserve Test",
+        "date": "2025-06-01",
+        "teams": [
+            {"name": "Team Alpha Renamed", "member1": "A1", "member2": "A2"},
+            {"name": "Team Beta", "member1": "B1", "member2": "B2"},
+        ],
+        "num_rounds": 1,
+        "deals_per_round": 1,
+    }
+    r = client.put(f"/api/tournaments/{tour_id}", json=put_payload)
+    assert r.status_code == 200
+    rounds_after = client.get(f"/api/tournaments/{tour_id}/rounds").get_json()
+    table_results = rounds_after["rounds"][0]["tables"][0]["results"]
+    deal_id_str = str(rounds_after["rounds"][0]["deals"][0]["id"])
+    assert table_results[deal_id_str]["contract"] == "2S"
+    assert table_results[deal_id_str]["tricks_taken"] == 8

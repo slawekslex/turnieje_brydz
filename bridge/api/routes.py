@@ -16,11 +16,19 @@ from bridge.models.contract import (
     CONTRACT_SUITS,
 )
 from bridge.scoring import compute_score
-from bridge.models.round_models import Result, Round
+from bridge.models.round_models import (
+    Result,
+    Round,
+    deal_dealer_vulnerability,
+)
 from bridge.models.tournament import Tournament
 from bridge.services.round_results import round_head_to_head_data, round_ranking_data, round_results_view_data
 from bridge.services.schedule import schedule_view_data
-from bridge.services.tournament_service import parse_tournament_payload
+from bridge.services.tournament_service import (
+    apply_non_breaking_update,
+    is_update_breaking,
+    parse_tournament_payload,
+)
 from bridge.storage import (
     ensure_data_dir,
     ensure_tournament_dir,
@@ -183,6 +191,9 @@ def get_tournament(tour_id: str):
     deals_per_round = (
         cycles[0].get("deals_per_round", 2) if cycles else 2
     )
+    has_results = any(
+        bool(rnd.results_by_table_deal) for rnd in tournament.rounds
+    )
     return jsonify({
         "id": tour_id,
         "name": tournament.name,
@@ -191,6 +202,8 @@ def get_tournament(tour_id: str):
         "cycles": cycles,
         "num_rounds": num_rounds,
         "deals_per_round": deals_per_round,
+        "number_of_boxes": tournament.number_of_boxes,
+        "has_results": has_results,
     })
 
 
@@ -201,11 +214,18 @@ def get_tournament_rounds(tour_id: str):
         return err[0], err[1]
     team_by_id = {t.id: {"id": t.id, "name": t.name} for t in tournament.teams}
     rounds_data = []
+    n_boxes = tournament.number_of_boxes
     for rnd in tournament.rounds:
-        deals_data = [
-            {"id": d.id, "number": d.number, "dealer": d.dealer, "vulnerability": d.vulnerability}
-            for d in rnd.deals
-        ]
+        deals_data = []
+        for d in rnd.deals:
+            dealer, vuln = deal_dealer_vulnerability(d.box, n_boxes)
+            deals_data.append({
+                "id": d.id,
+                "number": d.id,
+                "dealer": dealer,
+                "vulnerability": vuln,
+                "box": d.box,
+            })
         tables_data = []
         for tbl in rnd.tables:
             ns = team_by_id.get(tbl.ns_team_id, {"id": tbl.ns_team_id, "name": "?"})
@@ -257,13 +277,15 @@ def get_round_deal_results(tour_id: str, round_id: int):
     if err_r:
         return err_r[0], err_r[1]
     _, deals_with_tables = round_results_view_data(tournament, round_id)
-    out = [
-        {
-            "deal": {"number": item["deal"].number, "dealer": item["deal"].dealer, "vulnerability": item["deal"].vulnerability},
+    n_boxes = tournament.number_of_boxes
+    out = []
+    for item in deals_with_tables:
+        d = item["deal"]
+        dealer, vuln = deal_dealer_vulnerability(d.box, n_boxes)
+        out.append({
+            "deal": {"number": d.id, "dealer": dealer, "vulnerability": vuln, "box": d.box},
             "table_rows": item["table_rows"],
-        }
-        for item in deals_with_tables
-    ]
+        })
     return jsonify({"deals_with_tables": out})
 
 
@@ -410,7 +432,10 @@ def save_round_results(tour_id: str):
         if v is None:
             continue
         deal = next((d for d in rnd.deals if d.id == v["deal_id"]), None)
-        vulnerability = deal.vulnerability if deal else "None"
+        _, vulnerability = (
+            deal_dealer_vulnerability(deal.box, tournament.number_of_boxes)
+            if deal else ("N", "None")
+        )
         pair = compute_score(v["contract"], v["declarer"], v["tricks_taken"], vulnerability)
         ns_score, ew_score = (pair if pair is not None else (0, 0))
         key = (v["table_number"], v["deal_id"])
@@ -450,7 +475,11 @@ def create_tournament():
         return jsonify({"ok": False, "errors": errors}), 400
     name, tournament_date, teams, cycles, rounds = data
 
-    tournament = Tournament(name=name, date=tournament_date, teams=teams, rounds=rounds)
+    number_of_boxes = max(1, int(body.get("number_of_boxes") or 1))
+    tournament = Tournament(
+        name=name, date=tournament_date, teams=teams, rounds=rounds,
+        number_of_boxes=number_of_boxes,
+    )
     tour_id = str(uuid.uuid4())
     data_dir = _data_dir()
     date_str = body.get("date") or ""
@@ -473,7 +502,7 @@ def archive_tournament(tour_id: str):
 
 @bp.route("/api/tournaments/<tour_id>", methods=["PUT"])
 def update_tournament(tour_id: str):
-    _tournament, path, err = _get_tournament_or_error(tour_id, json_response=True)
+    existing, path, err = _get_tournament_or_error(tour_id, json_response=True)
     if err:
         if err[1] == 404:
             return jsonify({"ok": False, "errors": ["Turniej nie istnieje."]}), 404
@@ -483,8 +512,35 @@ def update_tournament(tour_id: str):
     if errors:
         return jsonify({"ok": False, "errors": errors}), 400
     name, tournament_date, teams, cycles, rounds = data
-
-    tournament = Tournament(name=name, date=tournament_date, teams=teams, rounds=rounds)
-    save_tournament(tournament, path, cycles=cycles)
+    number_of_boxes = body.get("number_of_boxes")
+    if number_of_boxes is not None:
+        number_of_boxes = max(1, int(number_of_boxes))
+    else:
+        number_of_boxes = existing.number_of_boxes
+    new_tournament = Tournament(
+        name=name, date=tournament_date, teams=teams, rounds=rounds,
+        number_of_boxes=number_of_boxes,
+    )
+    confirm_clear = body.get("confirm_clear_results") is True
+    is_breaking, break_reasons = is_update_breaking(
+        existing, len(teams), cycles, len(rounds)
+    )
+    if is_breaking:
+        if not confirm_clear:
+            return jsonify({
+                "ok": False,
+                "errors": break_reasons,
+                "breaking_change": True,
+                "message": "Ta zmiana usunie zapisane wyniki. Potwierdź, aby kontynuować.",
+            }), 409
+        # User confirmed: save new tournament (results cleared)
+        save_tournament(new_tournament, path, cycles=cycles)
+    else:
+        # Non-breaking: keep existing rounds (and results), update name/date/teams, trim or append rounds
+        updated = apply_non_breaking_update(
+            existing, name, tournament_date, teams, len(rounds), cycles,
+            number_of_boxes=number_of_boxes,
+        )
+        save_tournament(updated, path, cycles=cycles)
     date_str = body.get("date") or ""
     return jsonify({"ok": True, "id": tour_id, "name": name, "date": date_str})

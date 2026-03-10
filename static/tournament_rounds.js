@@ -38,6 +38,22 @@
     return div.innerHTML;
   }
 
+  /** Build HTML for the shared box-info block: box number (blue), dealer, NS/EW vul. */
+  function buildBoxInfoHtml(boxNum, dealer, vulnerability) {
+    var vul = (vulnerability || 'None').trim();
+    var nsVul = vul === 'N-S' || vul === 'Both';
+    var ewVul = vul === 'E-W' || vul === 'Both';
+    var num = boxNum != null && boxNum !== '' ? escapeHtml(String(boxNum)) : '—';
+    var dealerStr = (dealer || '').trim() ? escapeHtml(String(dealer)) : '—';
+    return '<span class="box-info">' +
+      '<span class="box-info__num">' + num + '</span>' +
+      '<span class="box-info__dealer">' + dealerStr + '</span>' +
+      '<span class="box-info__vul">' +
+      '<span class="vul-seg vul-ns' + (nsVul ? ' vul-vul' : ' vul-nv') + '">NS</span>' +
+      '<span class="vul-seg vul-ew' + (ewVul ? ' vul-vul' : ' vul-nv') + '">EW</span>' +
+      '</span></span>';
+  }
+
   function setDealRowStateFromValidation(rowEl, valid, errors) {
     if (!rowEl) return;
     var contractErr = rowEl.querySelector('.deal-contract-error');
@@ -141,7 +157,13 @@
     html += '<th class="ranking-total-col">Suma</th></tr></thead><tbody>';
     for (var i = 0; i < ranking.length; i++) {
       var r = ranking[i];
-      html += '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(r.team_name || '') + '</td>';
+      var teamCell = '<span class="ranking-team-name">' + escapeHtml(r.team_name || '') + '</span>';
+      var m1 = (r.member1 || '').trim();
+      var m2 = (r.member2 || '').trim();
+      if (m1 || m2) {
+        teamCell += '<span class="ranking-team-players">' + escapeHtml([m1, m2].filter(Boolean).join(', ')) + '</span>';
+      }
+      html += '<tr><td>' + (i + 1) + '</td><td class="ranking-team-cell">' + teamCell + '</td>';
       var roundImps = r.round_imps || [];
       for (var ri = 0; ri < roundNumbers.length; ri++) {
         var imp = roundImps[ri];
@@ -178,7 +200,28 @@
   }
 
   function rankingPrint() {
-    window.print();
+    var printExtra = document.getElementById('standings-print-extra');
+    if (!roundsData || !roundsData.rounds[selectedRoundIndex]) {
+      window.print();
+      return;
+    }
+    var roundId = roundsData.rounds[selectedRoundIndex].round_id;
+    var url = '/api/tournaments/' + encodeURIComponent(tourId) + '/rounds/' + encodeURIComponent(String(roundId)) + '/head-to-head';
+    fetch(url)
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        if (printExtra) printExtra.innerHTML = buildHead2HeadHtml(data || {});
+        var afterPrint = function () {
+          if (printExtra) printExtra.innerHTML = '';
+          window.removeEventListener('afterprint', afterPrint);
+        };
+        window.addEventListener('afterprint', afterPrint);
+        window.print();
+      })
+      .catch(function () {
+        if (printExtra) printExtra.innerHTML = '';
+        window.print();
+      });
   }
 
   /** Build CSV string from lastRankingData; fields escaped for CSV. */
@@ -249,12 +292,19 @@
         '<p class="muted">Zapisz wszystkie rozdania w rundach 1–' + escapeHtml(String(data.round_number || '')) + ', aby zobaczyć bezpośrednie starcia.</p>';
       return;
     }
-    var teamNames = data.team_names || [];
-    var matrix = data.matrix || [];
-    if (!teamNames.length) {
+    if (!(data.team_names || []).length) {
       roundViewWyniki.innerHTML = '<p class="muted">Brak danych bezpośrednich starć.</p>';
       return;
     }
+    roundViewWyniki.innerHTML = buildHead2HeadHtml(data);
+  }
+
+  /** Build head-to-head HTML string (for inline view or print-extra). */
+  function buildHead2HeadHtml(data) {
+    if (!data || data.error_message) return '';
+    var teamNames = data.team_names || [];
+    var matrix = data.matrix || [];
+    if (!teamNames.length) return '';
     var maxAbs = 0;
     for (var i = 0; i < matrix.length; i++) {
       for (var j = 0; j < (matrix[i] || []).length; j++) {
@@ -286,7 +336,7 @@
     }
     html += '</tbody></table></div>';
     html += '<div class="head2head-legend"><span class="head2head-legend-item head2head-legend--neg">← strata IMP</span><span class="head2head-legend-item head2head-legend--zero">0</span><span class="head2head-legend-item head2head-legend--pos">zysk IMP →</span></div></div>';
-    roundViewWyniki.innerHTML = html;
+    return html;
   }
 
   function fetchAndRenderHead2Head() {
@@ -311,14 +361,10 @@
     for (var i = 0; i < vul.length; i++) {
       var item = vul[i];
       var deal = item.deal || {};
-      var vulStr = (deal.vulnerability || '').trim();
-      var nsVul = vulStr === 'N-S' || vulStr === 'Both';
-      var ewVul = vulStr === 'E-W' || vulStr === 'Both';
       html += '<div class="deal-results-section">';
       html += '<div class="deal-results-header">';
       html += '<span class="deal-board">Rozdanie ' + escapeHtml(String(deal.number)) + '</span>';
-      html += '<span class="deal-meta"><span class="deal-dealer">Rozdający: ' + escapeHtml(deal.dealer || '') + '</span> ';
-      html += '<span class="vul-label"><span class="vul-seg vul-ns ' + (nsVul ? 'vul-vul' : 'vul-nv') + '">NS</span><span class="vul-seg vul-ew ' + (ewVul ? 'vul-vul' : 'vul-nv') + '">EW</span></span></span>';
+      html += buildBoxInfoHtml(deal.box, deal.dealer, deal.vulnerability);
       html += '</div>';
       html += '<div class="deal-results-table-wrap"><table class="deal-results-table">';
       html += '<thead><tr><th>Stół</th><th>NS</th><th>EW</th><th>Kontrakt</th><th>Rozgrywał</th><th>Wist</th><th>Wziątki</th><th>Pkt NS</th><th>Pkt EW</th><th>IMP NS</th><th>IMP EW</th></tr></thead><tbody>';
@@ -763,17 +809,9 @@
         var declarerVal = (res.declarer || '').toUpperCase();
         if (DECLARERS.indexOf(declarerVal) === -1) declarerVal = '';
         var scoreText = formatScore(res.ns_score, res.ew_score, declarerVal);
-        var vul = (d.vulnerability || 'None').trim();
-        var nsVul = vul === 'N-S' || vul === 'Both';
-        var ewVul = vul === 'E-W' || vul === 'Both';
-        var vulLabel = '<span class="vul-label">' +
-          '<span class="vul-seg vul-ns' + (nsVul ? ' vul-vul' : ' vul-nv') + '">NS</span>' +
-          '<span class="vul-seg vul-ew' + (ewVul ? ' vul-vul' : ' vul-nv') + '">EW</span>' +
-          '</span>';
         row.innerHTML =
           '<div class="deal-info">' +
-            '<span class="deal-board">' + escapeHtml(String(d.number)) + '</span>' +
-            '<span class="deal-meta"><span class="deal-dealer">' + escapeHtml(d.dealer || '') + '</span> ' + vulLabel + '</span>' +
+            buildBoxInfoHtml(d.box, d.dealer, d.vulnerability) +
           '</div>' +
           '<div class="deal-field"><label><span>Kontrakt</span><input type="text" class="deal-input deal-contract" placeholder="3NT" value="' + escapeHtml(res.contract || '') + '"></label><span class="deal-contract-error hidden" aria-live="polite"></span></div>' +
           '<div class="deal-field"><label><span>Rozgrywał</span><select class="deal-input deal-declarer"><option value="">—</option><option value="N"' + (declarerVal === 'N' ? ' selected' : '') + '>N</option><option value="S"' + (declarerVal === 'S' ? ' selected' : '') + '>S</option><option value="E"' + (declarerVal === 'E' ? ' selected' : '') + '>E</option><option value="W"' + (declarerVal === 'W' ? ' selected' : '') + '>W</option></select></label><span class="deal-declarer-error hidden" aria-live="polite"></span></div>' +

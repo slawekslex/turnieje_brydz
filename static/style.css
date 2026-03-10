@@ -918,7 +918,7 @@ a.btn {
    -------------------------------------------------------------------------- */
 .deal-row {
   display: grid;
-  grid-template-columns: 6.5rem 4.5rem 3.5rem 4rem 3.5rem 6.5rem;
+  grid-template-columns: 8rem 4.5rem 3.5rem 4rem 3.5rem 6.5rem;
   gap: 0.5rem 0.75rem;
   align-items: center;
   padding: 0.45rem 0;
@@ -931,7 +931,7 @@ a.btn {
 
 .deal-row-header {
   display: grid;
-  grid-template-columns: 6.5rem 4.5rem 3.5rem 4rem 3.5rem 6.5rem;
+  grid-template-columns: 8rem 4.5rem 3.5rem 4rem 3.5rem 6.5rem;
   gap: 0.5rem 0.75rem;
   align-items: center;
   padding: 0.4rem 0 0.5rem;
@@ -971,38 +971,59 @@ a.btn {
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
+/* Box info: consistent block for box number (blue), dealer, vulnerability (NS/EW) */
+.box-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.box-info__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #fff;
+  background: var(--accent, #2563eb);
+  border-radius: 4px;
+}
+
+.box-info__dealer {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 1rem;
+  text-align: center;
+}
+
+.box-info__vul {
+  display: inline-flex;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 3px;
+  overflow: hidden;
+  line-height: 1.2;
+}
+
+.box-info__vul .vul-seg {
+  padding: 0.12rem 0.35rem;
+}
+
 .deal-info {
   font-size: 0.875rem;
   line-height: 1.35;
   min-width: 0;
-  color: var(--text-muted);
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  flex-wrap: nowrap;
-}
-
-.deal-board {
-  font-size: 0.875rem;
-  font-weight: 600;
-  flex-shrink: 0;
-  color: var(--text);
-}
-
-.deal-dealer {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.deal-meta {
-  color: var(--text-dim);
-  font-size: 0.875rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex-wrap: nowrap;
-  white-space: nowrap;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  overflow: hidden;
 }
 
 .vul-label {
@@ -1127,12 +1148,7 @@ a.btn {
 .deal-results-header .deal-board {
   font-weight: 600;
   color: var(--text);
-}
-
-.deal-results-header .deal-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
+  margin-right: 0.5rem;
 }
 
 .deal-results-table-wrap {
@@ -1153,7 +1169,27 @@ a.btn {
   padding: 0.45rem 0.6rem;
   text-align: left;
   border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
 }
+
+.deal-results-table th:last-child,
+.deal-results-table td:last-child {
+  border-right: none;
+}
+
+/* Align numeric columns right so headers and values line up */
+.deal-results-table th:nth-child(1),
+.deal-results-table td:nth-child(1) { text-align: right; }   /* Stół */
+.deal-results-table th:nth-child(7),
+.deal-results-table td:nth-child(7) { text-align: right; }  /* Wziątki */
+.deal-results-table th:nth-child(8),
+.deal-results-table td:nth-child(8) { text-align: right; }   /* Pkt NS */
+.deal-results-table th:nth-child(9),
+.deal-results-table td:nth-child(9) { text-align: right; }   /* Pkt EW */
+.deal-results-table th:nth-child(10),
+.deal-results-table td:nth-child(10) { text-align: right; }  /* IMP NS */
+.deal-results-table th:nth-child(11),
+.deal-results-table td:nth-child(11) { text-align: right; }  /* IMP EW */
 
 .deal-results-table th {
   font-size: 0.75rem;
@@ -1185,7 +1221,18 @@ a.btn {
   padding: 0.5rem 0.75rem;
   text-align: left;
   border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
 }
+
+.ranking-table th:last-child,
+.ranking-table td:last-child {
+  border-right: none;
+}
+
+/* Align headers with values: Miejsce and numeric columns right, Drużyna left */
+.ranking-table th:first-child { text-align: right; }
+.ranking-table th:nth-child(2) { text-align: left; }
+.ranking-table th:nth-child(n+3) { text-align: right; }
 
 .ranking-table th {
   font-size: 0.75rem;
@@ -1232,8 +1279,26 @@ a.btn {
   text-align: right;
 }
 
+.ranking-table td.ranking-team-cell {
+  text-align: left;
+  vertical-align: top;
+}
+
+.ranking-team-name {
+  display: block;
+  font-weight: 500;
+}
+
+.ranking-team-players {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
 @media print {
   .rounds-page .settings-gear-wrap,
+  .rounds-page .breadcrumb,
   .rounds-page .header-actions,
   .rounds-page .round-detail-edit-actions,
   .rounds-page .round-detail-view-actions,
@@ -1243,9 +1308,52 @@ a.btn {
   .rounds-page .round-pill {
     display: none !important;
   }
+  .rounds-page .round-detail-edit {
+    display: none !important;
+  }
+  .rounds-page .container {
+    max-width: none;
+    padding: 0;
+  }
+  .rounds-page .rounds-card.card {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+  }
+  .rounds-page header {
+    margin-bottom: 0.5rem;
+  }
   .rounds-page .round-detail-view .round-view-wyniki .ranking-table {
     margin-top: 0;
   }
+  .rounds-page .round-detail-header {
+    margin-bottom: 0.5rem;
+  }
+  .standings-print-extra:not(:empty) {
+    display: block !important;
+    margin-top: 1.5rem;
+    break-before: auto;
+  }
+  .standings-print-extra .head2head-scroll {
+    overflow: visible;
+    box-shadow: none;
+  }
+  /* Force head-to-head matrix and legend background colours to print */
+  .standings-print-extra .head2head-wrap,
+  .standings-print-extra .head2head-table,
+  .standings-print-extra .head2head-table th,
+  .standings-print-extra .head2head-table td,
+  .standings-print-extra .head2head-cell,
+  .standings-print-extra .head2head-legend-item::before {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+.standings-print-extra {
+  display: none;
 }
 
 /* Head-to-head heatmap (Bezpośrednio) */

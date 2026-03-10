@@ -423,10 +423,12 @@ def build_rounds_from_cycles(
     teams: List[Team],
     cycles: List[dict],
     deals_per_round_default: int = DEFAULT_DEALS_PER_ROUND,
+    number_of_boxes: int = 1,
 ) -> List[Round]:
     """Build full rounds list from cycles using add_round_robin (each new cycle distinct from previous)."""
     if not cycles:
         cycles = [{"deals_per_round": deals_per_round_default}]
+    number_of_boxes = max(1, number_of_boxes)
     rounds_per_cycle = _rounds_per_cycle(len(teams))
     all_rounds: List[Round] = []
     deal_id_start = 1
@@ -442,7 +444,9 @@ def build_rounds_from_cycles(
         schedule = add_round_robin(teams, existing_cycles, k=100)
         validate_round_robin(teams, schedule)
         existing_cycles.append(schedule)
-        deal_seq = standard_16_board_deal_sequence(start_id=deal_id_start)
+        deal_seq = standard_16_board_deal_sequence(
+            start_id=deal_id_start, number_of_boxes=number_of_boxes
+        )
         cycle_rounds = assign_deals_to_rounds(schedule, deals_per_round, deal_seq)
         cycle_rounds = cycle_rounds[:rounds_in_cycle]
         for rnd in cycle_rounds:
@@ -458,3 +462,50 @@ def build_rounds_from_cycles(
             global_round_id += 1
         deal_id_start += rounds_in_cycle * deals_per_round
     return all_rounds
+
+
+def build_extra_rounds(
+    teams: List[Team],
+    existing_rounds: List[Round],
+    num_extra_rounds: int,
+    deals_per_round: int,
+    number_of_boxes: int = 1,
+) -> List[Round]:
+    """
+    Build additional rounds to append after existing_rounds (e.g. when increasing
+    num_rounds without breaking). Uses add_round_robin so the new cycle is distinct.
+    Round ids and deal ids continue from the existing rounds.
+    """
+    if num_extra_rounds <= 0:
+        return []
+    number_of_boxes = max(1, number_of_boxes)
+    rounds_per_cycle = _rounds_per_cycle(len(teams))
+    if rounds_per_cycle <= 0:
+        return []
+    # First cycle worth of existing rounds (for add_round_robin existing_cycles)
+    first_cycle = existing_rounds[:rounds_per_cycle]
+    existing_cycles = [[
+        Round(id=r.id, round_number=r.round_number, tables=r.tables, deals=[], results_by_table_deal={})
+        for r in first_cycle
+    ]]
+    schedule = add_round_robin(teams, existing_cycles, k=100)
+    validate_round_robin(teams, schedule)
+    start_round_id = len(existing_rounds) + 1
+    start_deal_id = sum(len(r.deals) for r in existing_rounds) + 1
+    deal_seq = standard_16_board_deal_sequence(
+        start_id=start_deal_id, number_of_boxes=number_of_boxes
+    )
+    to_take = min(num_extra_rounds, len(schedule))
+    cycle_rounds = assign_deals_to_rounds(schedule[:to_take], deals_per_round, deal_seq)
+    out: List[Round] = []
+    for i, rnd in enumerate(cycle_rounds):
+        out.append(
+            Round(
+                id=start_round_id + i,
+                round_number=start_round_id + i,
+                tables=rnd.tables,
+                deals=rnd.deals,
+                results_by_table_deal={},
+            )
+        )
+    return out
