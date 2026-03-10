@@ -72,14 +72,14 @@
               <button type="button" id="btn-add-team" class="btn btn-secondary btn-sm">+ Drużyna</button>
               <button type="button" id="btn-auto-teams" class="btn btn-secondary btn-sm">Auto</button>
             </div>
-            <p class="hint">Liczba drużyn musi być parzysta (min. 2). Każda drużyna: nazwa + dwóch członków.</p>
+            <p class="hint">Minimum 2 drużyny (dozwolona nieparzysta liczba – w każdej rundzie jedna drużyna ma wolną). Każda drużyna: nazwa + dwóch członków.</p>
             <div id="teams-container"></div>
           </div>
         </div>
 
         <div class="form-group rounds-structure-panel" id="rounds-structure-panel">
           <h3 class="rounds-structure-title">Struktura rund</h3>
-          <p class="hint rounds-structure-hint">Round-robin: każdy z każdym. Jedna seria to (liczba drużyn − 1) rund. Liczba rund musi być wielokrotnością tej wartości.</p>
+          <p class="hint rounds-structure-hint">Round-robin: każdy z każdym. Parzysta liczba drużyn: jedna seria = (drużyny − 1) rund. Nieparzysta: jedna seria = liczba drużyn rund (w każdej rundzie jedna drużyna ma wolną). Liczba rund – wielokrotność rund w serii.</p>
           <div class="form-row form-row-rounds-deals">
             <div class="form-group">
               <label for="tournament-num-rounds">Liczba rund</label>

@@ -63,8 +63,15 @@ class TournamentGeneratorTests(unittest.TestCase):
     def test_generate_round_robin_invalid_team_count_raises(self) -> None:
         with self.assertRaises(ValueError):
             generate_round_robin(_make_teams(1))
-        with self.assertRaises(ValueError):
-            generate_round_robin(_make_teams(3))
+
+    def test_generate_round_robin_odd_teams_with_bye(self) -> None:
+        """Three teams: 3 rounds, one bye per round, 1 table per round."""
+        teams = _make_teams(3)
+        rounds = generate_round_robin(teams)
+        self.assertEqual(len(rounds), 3)
+        for rnd in rounds:
+            self.assertEqual(len(rnd.tables), 1)
+        validate_round_robin(teams, rounds)
 
     def test_generate_random_round_robin_is_valid_and_randomized(self) -> None:
         teams = _make_teams(6)

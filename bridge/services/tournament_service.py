@@ -35,8 +35,6 @@ def parse_tournament_payload(body: dict) -> tuple[Any, list]:
             tournament_date = None
     if len(teams_data) < 2:
         errors.append("Wymagane są co najmniej 2 drużyny.")
-    if len(teams_data) % 2 != 0:
-        errors.append("Liczba drużyn musi być parzysta.")
 
     if errors:
         return None, errors

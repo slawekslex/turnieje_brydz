@@ -50,3 +50,16 @@ class ScheduleViewDataTests(unittest.TestCase):
         tournament = Tournament(name="T", date=date(2025, 1, 1), teams=teams, rounds=[])
         schedule = schedule_view_data(tournament)
         self.assertEqual(schedule, [])
+
+    def test_round_with_bye_includes_byes_list(self):
+        """With odd number of teams, each round has one team with bye; schedule shows it."""
+        teams = _make_teams(3)
+        rounds = generate_round_robin(teams)
+        tournament = Tournament(name="T", date=date(2025, 1, 1), teams=teams, rounds=rounds)
+        schedule = schedule_view_data(tournament)
+        self.assertEqual(len(schedule), 3)
+        for round_data in schedule:
+            self.assertIn("byes", round_data)
+            self.assertEqual(len(round_data["byes"]), 1)
+            self.assertIn("team_name", round_data["byes"][0])
+            self.assertIn(round_data["byes"][0]["team_name"], ["Team 1", "Team 2", "Team 3"])

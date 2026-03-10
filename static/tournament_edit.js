@@ -92,11 +92,12 @@
     var dealsPerRound = parseInt(dealsPerRoundInput && dealsPerRoundInput.value !== '' ? dealsPerRoundInput.value : '0', 10);
     if (isNaN(numRounds)) numRounds = 0;
     if (isNaN(dealsPerRound)) dealsPerRound = 0;
-    var roundsPerCycle = numTeams >= 2 ? numTeams - 1 : 0;
+    // Even teams: (n-1) rounds per full round-robin; odd teams: n rounds per cycle (one bye per round)
+    var roundsPerCycle = numTeams >= 2 ? (numTeams % 2 === 0 ? numTeams - 1 : numTeams) : 0;
 
     if (roundsWarning) {
       if (numTeams >= 2 && roundsPerCycle > 0 && numRounds > 0 && numRounds % roundsPerCycle !== 0) {
-        roundsWarning.textContent = 'Liczba rund (' + numRounds + ') nie jest wielokrotnością (drużyny − 1) = ' + roundsPerCycle + '. Ostatnia seria round-robin będzie niepełna. Możesz zapisać.';
+        roundsWarning.textContent = 'Liczba rund (' + numRounds + ') nie jest wielokrotnością rund w cyklu (' + roundsPerCycle + '). Ostatnia seria round-robin będzie niepełna. Możesz zapisać.';
         roundsWarning.classList.remove('hidden');
       } else {
         roundsWarning.textContent = '';
@@ -105,8 +106,8 @@
     }
 
     if (roundsTotalsValue) {
-      if (numTeams < 2 || numTeams % 2 !== 0) {
-        roundsTotalsValue.textContent = 'Dodaj parzystą liczbę drużyn (min. 2).';
+      if (numTeams < 2) {
+        roundsTotalsValue.textContent = 'Dodaj co najmniej 2 drużyny.';
       } else {
         var totalDeals = numRounds * dealsPerRound;
         roundsTotalsValue.textContent = numRounds + ' rund, ' + totalDeals + ' rozdania';

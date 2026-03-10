@@ -74,8 +74,8 @@ def round_ranking_data(tournament: Tournament, round_id: int):
         return None, None, None, "Runda nie znaleziona"
     rounds_to_include = [r for r in tournament.rounds if r.round_number <= rnd.round_number]
     round_numbers = [r.round_number for r in rounds_to_include]
-    # Collect all team names that appear in any round (for byes we use 0)
-    all_teams = set()
+    # All tournament teams appear in ranking; teams with bye get 0 for that round
+    all_teams = {t.name for t in tournament.teams}
     per_round_imps = []  # list of dicts: [{team: imp}, ...] one per round
     for r in rounds_to_include:
         _, deals_with_tables = round_results_view_data(tournament, r.id)
@@ -90,8 +90,6 @@ def round_ranking_data(tournament: Tournament, round_id: int):
                 ew_team = (row.get("ew_team") or "").strip() or "?"
                 round_imp_for_team[ns_team] = round_imp_for_team.get(ns_team, 0) + ns_imp
                 round_imp_for_team[ew_team] = round_imp_for_team.get(ew_team, 0) + ew_imp
-                all_teams.add(ns_team)
-                all_teams.add(ew_team)
         per_round_imps.append(round_imp_for_team)
     team_imps = {}
     team_round_imps = {}

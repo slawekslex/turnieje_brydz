@@ -11,6 +11,13 @@ from bridge.models.round_models import (
 )
 
 
+def _rounds_per_cycle(num_teams: int) -> int:
+    """Rounds in one full round-robin: even n -> n-1, odd n (with bye) -> n."""
+    if num_teams < 2:
+        return 0
+    return num_teams if num_teams % 2 == 1 else num_teams - 1
+
+
 def generate_round_robin(
     teams: List[Team],
 ) -> List[Round]:
@@ -18,48 +25,42 @@ def generate_round_robin(
     Generate a round-robin tournament schedule using the circle method.
 
     Assumptions:
-    - Number of teams N is even and >= 2.
+    - Number of teams N >= 2. Even N: N-1 rounds, each round N/2 tables.
+    - Odd N: N rounds, one team has bye each round, (N-1)/2 tables per round.
 
-    Behaviour (structure only, no deals):
-    - Each pair of teams meets exactly once over N-1 rounds.
-    - For each round, deals_per_round new deals are drawn from deal_generator.
-
-    Returns a list of Round objects with:
-    - tables filled (NS / EW per table)
-    - deals list left empty
-    - results_by_table_deal initially empty
+    Returns a list of Round objects with tables filled, deals empty.
     """
     num_teams = len(teams)
-    if num_teams < 2 or num_teams % 2 != 0:
-        raise ValueError("Number of teams must be an even integer >= 2")
+    if num_teams < 2:
+        raise ValueError("Number of teams must be >= 2")
 
-    # Copy to avoid mutating the caller's list
-    rotation = teams[:]
+    if num_teams % 2 == 0:
+        rotation: List[Optional[Team]] = teams[:]
+        num_rounds = num_teams - 1
+    else:
+        # Odd: add virtual bye slot; circle method with n+1 positions
+        rotation = teams[:] + [None]
+        num_rounds = num_teams
 
-    num_rounds = num_teams - 1
     rounds: List[Round] = []
+    n = len(rotation)
 
     for round_index in range(num_rounds):
         round_number = round_index + 1
-
         table_assignments: List[TableAssignment] = []
-        num_tables = num_teams // 2
+        table_number = 1
 
-        for table_index in range(num_tables):
-            # Pair the i-th team from the start with the i-th from the end
-            home = rotation[table_index]
-            away = rotation[-(table_index + 1)]
-
-            # Simple NS/EW assignment with alternation by round:
-            # on odd rounds, "home" is NS; on even rounds, "home" is EW
+        for i in range((n + 1) // 2):
+            home = rotation[i]
+            away = rotation[n - 1 - i]
+            if home is None or away is None:
+                continue
             if round_number % 2 == 1:
                 ns_team_id = home.id
                 ew_team_id = away.id
             else:
                 ns_team_id = away.id
                 ew_team_id = home.id
-
-            table_number: TableNumber = table_index + 1
             table_assignments.append(
                 TableAssignment(
                     table_number=table_number,
@@ -67,6 +68,7 @@ def generate_round_robin(
                     ew_team_id=ew_team_id,
                 )
             )
+            table_number += 1
 
         rounds.append(
             Round(
@@ -78,8 +80,6 @@ def generate_round_robin(
             )
         )
 
-        # Circle method rotation:
-        # Keep the first team fixed, rotate the others clockwise.
         fixed = rotation[0]
         rest = rotation[1:]
         rest = [rest[-1]] + rest[:-1]
@@ -93,8 +93,8 @@ def validate_round_robin(teams: List[Team], rounds: List[Round]) -> None:
     Validate that the given rounds form a proper single round-robin:
 
     - Every team plays every other team exactly once.
-    - No team appears more than once in the same round.
-    - All team ids in the rounds come from the provided teams list.
+    - No team appears more than once in the same round (or has bye).
+    - For odd N, each round has (N-1)/2 tables and one team has bye.
 
     Raises ValueError with a descriptive message if the schedule is invalid.
     """
@@ -103,11 +103,12 @@ def validate_round_robin(teams: List[Team], rounds: List[Round]) -> None:
 
     team_ids: List[int] = [t.id for t in teams]
     team_id_set: Set[int] = set(team_ids)
+    num_teams = len(team_ids)
 
     if len(team_ids) != len(team_id_set):
         raise ValueError("Team ids must be unique")
 
-    expected_rounds = len(team_ids) - 1
+    expected_rounds = _rounds_per_cycle(num_teams)
     if len(rounds) != expected_rounds:
         raise ValueError(
             f"Invalid number of rounds: expected {expected_rounds}, got {len(rounds)}"
@@ -139,6 +140,14 @@ def validate_round_robin(teams: List[Team], rounds: List[Round]) -> None:
             pair = (ns_id, ew_id) if ns_id < ew_id else (ew_id, ns_id)
             pair_counts[pair] = pair_counts.get(pair, 0) + 1
 
+    # For odd N, each round one team has bye so (num_teams - 1) teams play per round
+    expected_tables_per_round = (num_teams - 1) // 2 if num_teams % 2 == 1 else num_teams // 2
+    for rnd in rounds:
+        if len(rnd.tables) != expected_tables_per_round:
+            raise ValueError(
+                f"Round {rnd.round_number}: expected {expected_tables_per_round} tables, got {len(rnd.tables)}"
+            )
+
     required_pairs: Set[Tuple[int, int]] = set()
     for i in range(len(team_ids)):
         for j in range(i + 1, len(team_ids)):
@@ -167,36 +176,41 @@ def _generate_single_random_round_robin(
 ) -> List[Round]:
     """
     Generate one random round-robin cycle (circle method + random NS/EW).
-    Used internally by add_round_robin.
+    Supports even and odd number of teams (odd: one bye per round).
     """
     num_teams = len(teams)
-    if num_teams < 2 or num_teams % 2 != 0:
-        raise ValueError("Number of teams must be an even integer >= 2")
+    if num_teams < 2:
+        raise ValueError("Number of teams must be >= 2")
 
-    rotation = teams[:]
-    rng.shuffle(rotation)
+    rotation_list = teams[:]
+    rng.shuffle(rotation_list)
+    if num_teams % 2 == 0:
+        rotation = rotation_list
+        num_rounds = num_teams - 1
+        n = num_teams
+    else:
+        rotation = rotation_list + [None]
+        num_rounds = num_teams
+        n = num_teams + 1
 
-    num_rounds = num_teams - 1
     rounds: List[Round] = []
 
     for round_index in range(num_rounds):
         round_number = round_index + 1
-
         table_assignments: List[TableAssignment] = []
-        num_tables = num_teams // 2
+        table_number = 1
 
-        for table_index in range(num_tables):
-            home = rotation[table_index]
-            away = rotation[-(table_index + 1)]
-
+        for i in range((n + 1) // 2):
+            home = rotation[i]
+            away = rotation[n - 1 - i]
+            if home is None or away is None:
+                continue
             if rng.random() < 0.5:
                 ns_team_id = home.id
                 ew_team_id = away.id
             else:
                 ns_team_id = away.id
                 ew_team_id = home.id
-
-            table_number: TableNumber = table_index + 1
             table_assignments.append(
                 TableAssignment(
                     table_number=table_number,
@@ -204,6 +218,7 @@ def _generate_single_random_round_robin(
                     ew_team_id=ew_team_id,
                 )
             )
+            table_number += 1
 
         rounds.append(
             Round(
@@ -243,8 +258,8 @@ def add_round_robin(
         raise ValueError("k must be a positive integer")
 
     num_teams = len(teams)
-    if num_teams < 2 or num_teams % 2 != 0:
-        raise ValueError("Number of teams must be an even integer >= 2")
+    if num_teams < 2:
+        raise ValueError("Number of teams must be >= 2")
 
     if not existing_cycles:
         cycle = _generate_single_random_round_robin(teams, rng)
@@ -387,11 +402,11 @@ def cycles_from_num_rounds_and_deals(
 ) -> List[dict]:
     """
     Build cycles list from total rounds and deals per round.
-    One full round-robin = num_teams - 1 rounds. If num_rounds is not divisible,
-    the last cycle is partial (use "rounds": k in that entry).
+    One full round-robin: even teams = num_teams - 1 rounds, odd teams = num_teams rounds (bye each round).
+    If num_rounds is not divisible, the last cycle is partial (use "rounds": k in that entry).
     Returns [] when num_rounds is 0.
     """
-    rounds_per_cycle = num_teams - 1 if num_teams >= 2 else 0
+    rounds_per_cycle = _rounds_per_cycle(num_teams)
     if rounds_per_cycle <= 0:
         return [{"deals_per_round": max(0, deals_per_round)}] if num_rounds > 0 else []
     if num_rounds <= 0:
@@ -412,7 +427,7 @@ def build_rounds_from_cycles(
     """Build full rounds list from cycles using add_round_robin (each new cycle distinct from previous)."""
     if not cycles:
         cycles = [{"deals_per_round": deals_per_round_default}]
-    rounds_per_cycle = len(teams) - 1
+    rounds_per_cycle = _rounds_per_cycle(len(teams))
     all_rounds: List[Round] = []
     deal_id_start = 1
     global_round_id = 1

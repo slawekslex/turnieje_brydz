@@ -80,7 +80,7 @@ class TestCyclesFromNumRounds(unittest.TestCase):
             cycles_from_num_rounds_and_deals,
         )
 
-        # 6 teams -> 5 rounds per cycle. 10 rounds -> 2 cycles.
+        # 6 teams (even) -> 5 rounds per cycle. 10 rounds -> 2 cycles.
         cycles = cycles_from_num_rounds_and_deals(
             num_teams=6, num_rounds=10, deals_per_round=3
         )
@@ -93,6 +93,45 @@ class TestCyclesFromNumRounds(unittest.TestCase):
         for rnd in rounds:
             self.assertEqual(len(rnd.tables), 3)
             self.assertEqual(len(rnd.deals), 3)
+
+    def test_cycles_from_num_rounds_five_teams_one_cycle(self) -> None:
+        from bridge.services.generator import (
+            build_rounds_from_cycles,
+            cycles_from_num_rounds_and_deals,
+            validate_round_robin,
+        )
+
+        # 5 teams (odd) -> 5 rounds per cycle (one bye per round). 5 rounds -> 1 cycle.
+        cycles = cycles_from_num_rounds_and_deals(
+            num_teams=5, num_rounds=5, deals_per_round=2
+        )
+        self.assertEqual(len(cycles), 1)
+        self.assertEqual(cycles[0]["deals_per_round"], 2)
+
+        teams = _make_teams(5)
+        rounds = build_rounds_from_cycles(teams, cycles)
+        self.assertEqual(len(rounds), 5)
+        for rnd in rounds:
+            self.assertEqual(len(rnd.tables), 2)  # (5-1)/2 = 2 tables per round
+            self.assertEqual(len(rnd.deals), 2)
+        validate_round_robin(teams, rounds)
+
+    def test_cycles_from_num_rounds_five_teams_two_cycles(self) -> None:
+        from bridge.services.generator import (
+            build_rounds_from_cycles,
+            cycles_from_num_rounds_and_deals,
+        )
+
+        # 5 teams -> 5 rounds per cycle. 10 rounds -> 2 cycles.
+        cycles = cycles_from_num_rounds_and_deals(
+            num_teams=5, num_rounds=10, deals_per_round=1
+        )
+        self.assertEqual(len(cycles), 2)
+        teams = _make_teams(5)
+        rounds = build_rounds_from_cycles(teams, cycles)
+        self.assertEqual(len(rounds), 10)
+        for rnd in rounds:
+            self.assertEqual(len(rnd.tables), 2)
 
     def test_cycles_from_num_rounds_zero_rounds(self) -> None:
         from bridge.services.generator import (

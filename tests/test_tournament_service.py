@@ -54,3 +54,24 @@ class ParseTournamentPayloadTests(unittest.TestCase):
         self.assertEqual(name, "Test")
         self.assertEqual(tournament_date, date(2025, 6, 1))
         self.assertEqual([t.name for t in teams], ["Alfa", "Beta"])
+
+    def test_odd_number_of_teams_accepted(self) -> None:
+        """Odd number of teams is accepted (one bye per round)."""
+        body = {
+            "name": "Three Teams",
+            "date": "2025-07-01",
+            "teams": [
+                {"name": "A", "member1": "A1", "member2": "A2"},
+                {"name": "B", "member1": "B1", "member2": "B2"},
+                {"name": "C", "member1": "C1", "member2": "C2"},
+            ],
+            "num_rounds": 3,
+            "deals_per_round": 2,
+        }
+        data, errors = parse_tournament_payload(body)
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(data)
+        name, tournament_date, teams, cycles, rounds = data
+        self.assertEqual(len(teams), 3)
+        self.assertEqual(len(cycles), 1)
+        self.assertEqual(len(rounds), 3)

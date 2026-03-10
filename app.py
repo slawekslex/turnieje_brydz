@@ -44,4 +44,5 @@ app.register_blueprint(bp)
 
 if __name__ == "__main__":
     ensure_data_dir(Path(app.config["DATA_DIR"]))
-    app.run(debug=DEBUG, port=PORT)
+    # debug=True enables the Werkzeug reloader: server restarts when Python/template files change
+    app.run(debug=DEBUG, port=PORT, use_reloader=DEBUG)
