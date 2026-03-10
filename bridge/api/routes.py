@@ -179,12 +179,18 @@ def get_tournament(tour_id: str):
         for t in tournament.teams
     ]
     cycles = load_tournament_cycles(path)
+    num_rounds = len(tournament.rounds)
+    deals_per_round = (
+        cycles[0].get("deals_per_round", 2) if cycles else 2
+    )
     return jsonify({
         "id": tour_id,
         "name": tournament.name,
         "date": tournament.date.isoformat(),
         "teams": teams_data,
         "cycles": cycles,
+        "num_rounds": num_rounds,
+        "deals_per_round": deals_per_round,
     })
 
 
