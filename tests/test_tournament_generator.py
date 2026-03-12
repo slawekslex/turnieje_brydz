@@ -223,6 +223,40 @@ class TournamentGeneratorTests(unittest.TestCase):
         self.assertGreaterEqual(score_ac, 0)
         self.assertGreaterEqual(score_bc, 0)
 
+    def test_deterministic_pairings_without_rng(self) -> None:
+        """Without passing rng, same number of teams must yield identical pairings."""
+        teams6 = _make_teams(6)
+
+        # Single cycle: two calls with no rng must match
+        rounds_a = generate_random_round_robin(teams6)
+        rounds_b = generate_random_round_robin(teams6)
+        self._assert_same_pairings(rounds_a, rounds_b)
+
+        # Multiple cycles via add_round_robin (no rng): repeat and compare
+        cycle1_a = add_round_robin(teams6, [], k=1)
+        cycle1_b = add_round_robin(teams6, [], k=1)
+        self._assert_same_pairings(cycle1_a, cycle1_b)
+
+        cycle2_a = add_round_robin(teams6, [cycle1_a], k=20)
+        cycle2_b = add_round_robin(teams6, [cycle1_b], k=20)
+        self._assert_same_pairings(cycle2_a, cycle2_b)
+
+        # Different team count can differ (just sanity check we get valid schedules)
+        teams4 = _make_teams(4)
+        rounds4 = generate_random_round_robin(teams4)
+        validate_round_robin(teams4, rounds4)
+        self.assertEqual(len(rounds4), 3)
+
+    def _assert_same_pairings(
+        self, rounds_a: List[Round], rounds_b: List[Round]
+    ) -> None:
+        self.assertEqual(len(rounds_a), len(rounds_b))
+        for rnd_a, rnd_b in zip(rounds_a, rounds_b):
+            self.assertEqual(len(rnd_a.tables), len(rnd_b.tables))
+            for t_a, t_b in zip(rnd_a.tables, rnd_b.tables):
+                self.assertEqual(t_a.ns_team_id, t_b.ns_team_id)
+                self.assertEqual(t_a.ew_team_id, t_b.ew_team_id)
+
 
 if __name__ == "__main__":
     unittest.main()

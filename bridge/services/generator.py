@@ -10,6 +10,9 @@ from bridge.models.round_models import (
     standard_16_board_deal_sequence,
 )
 
+# Fixed seed for deterministic round pairings when no rng is passed (same num_teams → same schedule).
+DEFAULT_RANDOM_SEED = 42
+
 
 def _rounds_per_cycle(num_teams: int) -> int:
     """Rounds in one full round-robin: even n -> n-1, odd n (with bye) -> n."""
@@ -250,9 +253,11 @@ def add_round_robin(
     Tries k random round-robin schedules and returns the one with the lowest
     total penalty (sum of score_cycle_difference with each existing cycle).
     When existing_cycles is empty, samples once and returns that cycle.
+    When rng is None, uses a deterministic seed (DEFAULT_RANDOM_SEED + len(existing_cycles))
+    so that the same number of teams and cycle index always yields the same pairings.
     """
     if rng is None:
-        rng = random.Random()
+        rng = random.Random(DEFAULT_RANDOM_SEED + len(existing_cycles))
 
     if k <= 0:
         raise ValueError("k must be a positive integer")
@@ -378,9 +383,10 @@ def generate_two_round_robin(
     """
     Generate two round-robin cycles A and B where B is chosen to be
     as distinct as possible from A (according to score_cycle_difference).
+    When rng is None, uses DEFAULT_RANDOM_SEED for deterministic results.
     """
     if rng is None:
-        rng = random.Random()
+        rng = random.Random(DEFAULT_RANDOM_SEED)
 
     if k <= 0:
         raise ValueError("k must be a positive integer")
