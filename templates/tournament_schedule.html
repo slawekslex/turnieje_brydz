@@ -21,6 +21,7 @@
     .schedule-table .col-table { width: 5rem; }
     .schedule-table .col-ns,
     .schedule-table .col-ew { min-width: 10rem; }
+    .schedule-table .team-players { font-size: 0.85em; color: var(--text-muted, #666); font-weight: 400; margin-top: 0.15rem; }
     .schedule-row-bye { background: var(--bg-muted, #f0f0f0); color: var(--text-muted, #666); }
     .schedule-row-bye .col-ew { font-weight: 600; }
     @media print {
@@ -74,14 +75,23 @@
             {% for t in round.tables %}
             <tr>
               <td class="col-table">{{ t.table_number }}</td>
-              <td class="col-ns">{{ t.ns_name }}</td>
-              <td class="col-ew">{{ t.ew_name }}</td>
+              <td class="col-ns">
+                <span class="team-name">{{ t.ns_name }}</span>
+                {% if t.ns_players %}<div class="team-players">{{ t.ns_players }}</div>{% endif %}
+              </td>
+              <td class="col-ew">
+                <span class="team-name">{{ t.ew_name }}</span>
+                {% if t.ew_players %}<div class="team-players">{{ t.ew_players }}</div>{% endif %}
+              </td>
             </tr>
             {% endfor %}
             {% for bye in round.byes %}
             <tr class="schedule-row-bye">
               <td class="col-table">—</td>
-              <td class="col-ns">{{ bye.team_name }}</td>
+              <td class="col-ns">
+                <span class="team-name">{{ bye.team_name }}</span>
+                {% if bye.team_players %}<div class="team-players">{{ bye.team_players }}</div>{% endif %}
+              </td>
               <td class="col-ew">BYE</td>
             </tr>
             {% endfor %}
