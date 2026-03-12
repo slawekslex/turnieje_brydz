@@ -51,6 +51,7 @@
       <p class="schedule-print-date muted" aria-hidden="true">{{ tournament_date }}</p>
       <div class="header-actions no-print">
         <button type="button" id="btn-print-schedule" class="btn btn-primary btn-sm">Drukuj</button>
+        <a href="{{ url_for('api.tournament_result_sheets_index', tour_id=tour_id) }}" class="btn btn-secondary btn-sm">Arkusze wyników</a>
         <a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}" class="btn btn-secondary btn-sm">← Rundy</a>
       </div>
     </header>

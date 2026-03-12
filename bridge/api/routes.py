@@ -24,6 +24,7 @@ from bridge.models.round_models import (
 from bridge.models.tournament import Tournament
 from bridge.services.round_results import round_head_to_head_data, round_ranking_data, round_results_view_data
 from bridge.services.schedule import schedule_view_data
+from bridge.services.table_sheet import all_tables_sheet_data, table_sheet_view_data
 from bridge.services.tournament_service import (
     apply_non_breaking_update,
     is_update_breaking,
@@ -148,6 +149,57 @@ def round_ranking_redirect(tour_id: str, round_id: int):
     if err:
         return err[0], err[1]
     return redirect(url_for("api.tournament_rounds_page", tour_id=tour_id, round=round_id, view="standings"))
+
+
+@bp.route("/tournament/<tour_id>/result-sheets")
+def tournament_result_sheets_index(tour_id: str):
+    """Index page: list links to printable result sheet for each table."""
+    tournament, path, err = _get_tournament_or_error(tour_id, json_response=False)
+    if err:
+        return err[0], err[1]
+    sheets = all_tables_sheet_data(tournament)
+    return render_template(
+        "result_sheets_index.html",
+        tour_id=tour_id,
+        tournament_name=tournament.name,
+        tournament_date=tournament.date.isoformat(),
+        sheets=sheets,
+    )
+
+
+@bp.route("/tournament/<tour_id>/result-sheets/<int:table_number>")
+def tournament_table_result_sheet(tour_id: str, table_number: int):
+    """Single table printable result sheet (round sections, NS/EW, deal rows)."""
+    tournament, path, err = _get_tournament_or_error(tour_id, json_response=False)
+    if err:
+        return err[0], err[1]
+    data = table_sheet_view_data(tournament, table_number)
+    if not data:
+        return render_template("404.html"), 404
+    return render_template(
+        "table_result_sheet.html",
+        tour_id=tour_id,
+        tournament_name=data["tournament_name"],
+        tournament_date=data["tournament_date"],
+        table_number=data["table_number"],
+        rounds=data["rounds"],
+    )
+
+
+@bp.route("/tournament/<tour_id>/result-sheets/all")
+def tournament_result_sheets_all(tour_id: str):
+    """Printable document: one page per table (all result sheets in one print)."""
+    tournament, path, err = _get_tournament_or_error(tour_id, json_response=False)
+    if err:
+        return err[0], err[1]
+    sheets = all_tables_sheet_data(tournament)
+    return render_template(
+        "result_sheets_all.html",
+        tour_id=tour_id,
+        tournament_name=tournament.name,
+        tournament_date=tournament.date.isoformat(),
+        sheets=sheets,
+    )
 
 
 # --- Settings ---
