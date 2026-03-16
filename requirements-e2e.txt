@@ -1,0 +1,4 @@
+# E2E (browser) tests. Install with: pip install -r requirements-e2e.txt
+# Then install browser binaries: playwright install
+-r requirements.txt
+pytest-playwright>=0.4.0

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arkusze wyników – {{ tournament_name }} – Turnieje brydżowe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="app-body">
+  <div class="container">
+    <nav class="breadcrumb" aria-label="Nawigacja">
+      <ol class="breadcrumb-list">
+        <li><a href="{{ url_for('api.index') }}">Lista turniejów</a></li>
+        <li><a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}">{{ tournament_name }}</a></li>
+        <li aria-current="page">Arkusze wyników</li>
+      </ol>
+    </nav>
+    <header>
+      <h1>Arkusze wyników</h1>
+      <p class="muted">{{ tournament_name }} · {{ tournament_date }}</p>
+      <div class="header-actions">
+        <a href="{{ url_for('api.tournament_result_sheets_all', tour_id=tour_id) }}" class="btn btn-primary btn-sm" target="_blank" rel="noopener">Drukuj wszystkie stoły</a>
+        <a href="{{ url_for('api.tournament_schedule_page', tour_id=tour_id) }}" class="btn btn-secondary btn-sm">Harmonogram</a>
+        <a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}" class="btn btn-secondary btn-sm">← Rundy</a>
+      </div>
+    </header>
+    <p class="muted">Jeden arkusz na stół – do wydruku i przyklejenia przy stole. Drużyny wpisują wyniki w trakcie turnieju.</p>
+    <ul class="card-list" style="list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem;">
+      {% for sheet in sheets %}
+      <li>
+        <a href="{{ url_for('api.tournament_table_result_sheet', tour_id=tour_id, table_number=sheet.table_number) }}" class="btn btn-secondary btn-sm" target="_blank" rel="noopener">Stół {{ sheet.table_number }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</body>
+</html>
