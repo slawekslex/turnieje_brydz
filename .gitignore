@@ -16,6 +16,7 @@ tests/tmp_api_tournaments/
 
 # IDE
 .idea/
+.vscode/
 *.swp
 *.swo
 

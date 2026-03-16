@@ -1,12 +1,12 @@
-# Turniej brydżowy
+# Turniej brydzowy
 
-**Wersja 0.3.0**
+**Wersja 0.4.0**
 
-Aplikacja webowa do zarządzania turniejami brydżowymi w systemie round-robin: lista turniejów, tworzenie i edycja (metadane + drużyny), harmonogram rund i rozdania generowane automatycznie, wpisywanie wyników rozdania z walidacją kontraktu i liczeniem IMP, ranking kumulatywny oraz macierz head-to-head.
+Aplikacja webowa (Flask + vanilla JS) do prowadzenia turniejow brydzowych w systemie round-robin: zarzadzanie turniejami, automatyczne generowanie rund i rozdan, wpisywanie wynikow z walidacja, liczenie IMP, ranking kumulatywny i macierz bezposrednich starc.
 
 ## Zrzuty ekranu
 
-![Lista turniejów](screenshots/Screenshot%202026-02-06%20143158.png)
+![Lista turniejow](screenshots/Screenshot%202026-02-06%20143158.png)
 ![Harmonogram](screenshots/Screenshot%202026-02-06%20143319.png)
 ![Rundy i wyniki](screenshots/Screenshot%202026-02-06%20143534.png)
 
@@ -16,7 +16,7 @@ Aplikacja webowa do zarządzania turniejami brydżowymi w systemie round-robin: 
 
 ## Instalacja i uruchomienie
 
-1. **Środowisko wirtualne (zalecane):**
+1. **Srodowisko wirtualne (zalecane):**
 
    ```bash
    python -m venv .venv
@@ -24,7 +24,7 @@ Aplikacja webowa do zarządzania turniejami brydżowymi w systemie round-robin: 
    # source .venv/bin/activate     # Linux / macOS
    ```
 
-2. **Instalacja zależności:**
+2. **Instalacja zaleznosci:**
 
    ```bash
    pip install -r requirements.txt
@@ -36,53 +36,110 @@ Aplikacja webowa do zarządzania turniejami brydżowymi w systemie round-robin: 
    python app.py
    ```
 
-4. Otwórz w przeglądarce: **http://127.0.0.1:5000/**
+4. Otworz w przegladarce: **http://127.0.0.1:5000/**
 
-**Konfiguracja:** Skopiuj `.env.example` do `.env` w katalogu projektu i ustaw wartości. Aplikacja ładuje `.env` przy starcie; zmienne środowiskowe mają pierwszeństwo.
+## Konfiguracja (`.env`)
 
-| Zmienna           | Opis                          | Domyślnie      |
-|-------------------|-------------------------------|----------------|
-| `BRIDGE_DATA_DIR` | Katalog z danymi (turnieje)   | `./data`       |
-| `FLASK_DEBUG`     | Tryb debug (`true`/`1`/`yes`) | `false`        |
-| `PORT`            | Port serwera                  | `5000`         |
-| `FLASK_SECRET_KEY`| Klucz sekretny (sesje; produkcja) | —          |
+Skopiuj `.env.example` do `.env` i ustaw wartosci. Aplikacja laduje `.env` przy starcie, a zmienne srodowiskowe maja pierwszenstwo.
 
-## Funkcjonalność
+| Zmienna            | Opis                                    | Domyslnie |
+|--------------------|-----------------------------------------|-----------|
+| `BRIDGE_DATA_DIR`  | Katalog z danymi turniejow              | `./data`  |
+| `FLASK_DEBUG`      | Tryb debug Flask (`true`/`1`/`yes`)     | `false`   |
+| `PORT`             | Port serwera                            | `5000`    |
+| `FLASK_SECRET_KEY` | Klucz sesji Flask (istotny na produkcji) | —         |
+
+## Funkcjonalnosc
 
 ### Turnieje
 
-- **Lista turniejów** — strona główna: lista aktywnych turniejów (nazwa, data). Turnieje zarchiwizowane nie są na liście.
-- **Dodaj turniej** — formularz: nazwa, data, drużyny (nazwa + dwóch członków). Liczba drużyn parzysta (min. 2). Przycisk „+ Drużyna” dodaje kolejną drużynę.
-- **Edycja turnieju** — zmiana nazwy, daty i drużyn (z zachowaniem spójności rund).
-- **Archiwizacja** — ukrycie turnieju z listy (dane pozostają w `data/`).
+- **Lista aktywnych turniejow** (`/`) - nazwa i data, z szybkim przejsciem do rund.
+- **Tworzenie turnieju** - nazwa, data, druzyny (nazwa + 2 czlonkow), liczba rund, rozdania na runde.
+- **Parzysta i nieparzysta liczba druzyn** - dla nieparzystej liczby druzyn system automatycznie dodaje BYE (wolna druzyna).
+- **Archiwizacja** - turniej znika z listy aktywnych, dane zostaja w `data/`.
+- **Edycja turnieju** (`/tournament/<id>`) - nazwa, data, druzyny, liczba rund, rozdania na runde, liczba boksow.
+- **Bezpieczna edycja przy istniejacych wynikach**:
+  - zmiany niekrytyczne (np. nazwy) zachowuja wyniki,
+  - zmiany krytyczne (np. liczba druzyn, liczba rozdan/runde) wymagaja potwierdzenia i moga wyczyscic wyniki.
+- **Walidacja duplikatow nazw druzyn** - API odrzuca turniej z powtorzonymi nazwami.
 
-Po zapisaniu turnieju generowany jest harmonogram rund (round-robin) oraz rozdania; dane zapisywane są w katalogu `data/` (jeden folder na turniej, plik `data.json`; brak pliku indeksu — skan katalogu).
+### Generowanie rund i rozdan
+
+- **Round-robin (circle method)**:
+  - parzysta liczba druzyn: `n-1` rund na pelny cykl,
+  - nieparzysta liczba druzyn: `n` rund na pelny cykl (1 BYE/runde).
+- **Cykle round-robin** - generator potrafi budowac kolejne cykle tak, aby byly mozliwie rozne od poprzednich.
+- **Czesciowy ostatni cykl** - gdy liczba rund nie jest wielokrotnoscia rund/cykl.
+- **Rozdania na runde** - konfigurowalne (`deals_per_round`).
+- **Liczba boksow** (`number_of_boxes`) - dealer i zagrozenia rotuja po sekwencji 16-board i mapuja sie do liczby dostepnych boksow.
 
 ### Rundy i wyniki
 
-- **Harmonogram** — strona „Harmonogram” (`/tournament/<id>/schedule`): przegląd rund i stolików (NS/EW).
-- **Rundy** — strona „Rundy” (`/tournament/<id>/rounds`): wybór rundy, widoki:
-  - **Wyniki** — wpisywanie wyników rozdania: kontrakt (np. 3NT, 4Sx), rozgrywający, wist, liczba lew; walidacja na żywo; zapis punktów NS/EW i IMP (datum).
-  - **Ranking** — ranking kumulatywny IMP po wybranych rundach (wymaga zapisanych wyników we wszystkich uwzględnionych rundach); eksport do CSV, drukowanie.
-  - **Head-to-head** — macierz IMP drużyna vs drużyna (kumulatywnie do wybranej rundy).
+- **Widok rund** (`/tournament/<id>/rounds`) z szybkim wyborem rundy.
+- **Tryb edycji**:
+  - wpisywanie `contract`, `declarer`, `opening_lead`, `tricks_taken`,
+  - walidacja pojedynczego wiersza przez API (`/api/validate-result`),
+  - zapis calej rundy (`/api/tournaments/<id>/round-results`),
+  - status zapisu per runda (pelny/czesciowy/blad),
+  - skroty i ergonomia: `Ctrl+S`, nawigacja `Tab/Enter`, ostrzezenie o niezapisanych zmianach.
+- **Tryb podgladu (po zapisaniu kompletu wynikow)**:
+  - **Wyniki rozdan** z IMP na stolik i rozdanie (datum),
+  - **Ranking kumulatywny** IMP do wybranej rundy,
+  - **Head-to-head** (bezposrednio) - macierz IMP druzyna vs druzyna.
+- **Eksport i druk rankingu**:
+  - eksport CSV (UTF-8 BOM),
+  - drukowanie zestawienia.
+- **Pelen harmonogram** (`/tournament/<id>/schedule`) - widok i wydruk NS/EW na kazdy stolik/runde.
 
-### Ustawienia i API
+### Ustawienia i debug mode
 
-- **Ustawienia** — `/api/settings`: odczyt i zmiana (np. `debug_mode`).
-- **Kontrakt** — `/api/contract-spec`: poziomy, kolory, modyfikatory, wzorzec.
-- **Walidacja wyniku** — `/api/validate-result` (POST): sprawdzenie kontraktu i pól, zwrot `ns_score`/`ew_score`.
+- **Modal ustawien** na stronach UI.
+- **`debug_mode`** (`/api/settings`) wlacza przyciski pomocnicze:
+  - **Auto** w formularzu turnieju (uzupelnianie testowych druzyn),
+  - **Auto** w rundzie (losowe kontrakty i wyniki testowe).
+
+### API (skrot)
+
+Szczegolowa dokumentacja: `docs/API.md`.
+
+- `GET /api/settings`, `PATCH /api/settings`
+- `GET /api/tournaments`, `POST /api/tournaments`
+- `GET /api/tournaments/<tour_id>`, `PUT /api/tournaments/<tour_id>`
+- `POST /api/tournaments/<tour_id>/archive`
+- `GET /api/tournaments/<tour_id>/rounds`
+- `POST /api/tournaments/<tour_id>/round-results`
+- `GET /api/tournaments/<tour_id>/rounds/<round_id>/deal-results`
+- `GET /api/tournaments/<tour_id>/rounds/<round_id>/ranking`
+- `GET /api/tournaments/<tour_id>/rounds/<round_id>/head-to-head`
+- `GET /api/contract-spec`
+- `POST /api/validate-result`
+
+## Dane i trwalosc
+
+- Dane sa zapisywane jako JSON w `data/<folder_turnieju>/data.json`.
+- Brak centralnego indeksu turniejow - lista budowana przez skan katalogu `data/`.
+- Przy kazdym zapisie tworzony jest backup poprzedniej wersji w `data/<folder_turnieju>/archive/`.
+- Ustawienia UI (`debug_mode`) sa trzymane w `data/settings.json`.
 
 ## Testy
+
+Uruchomienie:
 
 ```bash
 pytest
 ```
 
-Testy: `test_contract.py`, `test_round_models.py`, `test_round_results.py`, `test_schedule.py`, `test_scoring.py`, `test_tournament_generator.py`, `test_tournament_rounds.py`, `test_tournament_service.py`, **`test_api_tournaments.py`** (testy API z Flask test client: lista, tworzenie, pobieranie, archiwizacja, zapis wyników rundy, ranking).
+Zakres testow obejmuje m.in.:
+
+- walidacje kontraktu i punktacji,
+- modele rund, dealer/vulnerability i obsluge boksow,
+- generator round-robin (parzyste/nieparzyste druzyny, wiele cykli),
+- dane wynikow rund, ranking i head-to-head,
+- API turniejow (lista, tworzenie, pobieranie, aktualizacja, archiwizacja, zapis wynikow, ranking).
 
 ## Skrypty demonstracyjne
 
-Z katalogu głównego projektu:
+Z katalogu glownego projektu:
 
 ```bash
 python -m scripts.run_tournament_demo
@@ -90,22 +147,19 @@ python -m scripts.score_random_rounds_demo
 python -m scripts.three_cycles_demo
 ```
 
-- `run_tournament_demo` — generowanie turnieju i rund.
-- `score_random_rounds_demo` — losowe wyniki rund.
-- `three_cycles_demo` — trzy cykle round-robin dla 6 drużyn, pary i kary za różnicę cykli.
+- `run_tournament_demo` - losowy round-robin + przypisanie rozdan.
+- `score_random_rounds_demo` - porownanie podobienstwa dwoch cykli.
+- `three_cycles_demo` - generowanie trzech cykli i ich kar roznic.
 
 ## Struktura projektu
 
-- **`app.py`** — punkt wejścia Flask (konfiguracja `DATA_DIR`, rejestracja blueprintu).
-- **`bridge/`** — pakiet główny:
-  - **`bridge/api/`** — routes: strona główna, edycja turnieju, rundy, harmonogram, placeholder rankingu; API turniejów, rund, wyników, rankingu, head-to-head, ustawień, contract-spec, walidacja wyniku.
-  - **`bridge/models/`** — modele: `contract.py` (kontrakt, walidacja), `round_models.py` (drużyny, rundy, stoliki, rozdania, wyniki), `tournament.py` (turniej, serializacja).
-  - **`bridge/storage/`** — zapis/odczyt JSON (katalog `data/`, jeden folder na turniej, brak indeksu; archiwizacja, backup w `archive/`).
-  - **`bridge/services/`** — logika: `generator.py` (round-robin, rozdania), `tournament_service.py` (parsowanie payloadu turnieju), `round_results.py` (widok wyników z IMP, ranking kumulatywny, head-to-head).
-  - **`bridge/scoring.py`** — liczenie punktów NS/EW z kontraktu i lew, IMP (tabela WBF), IMP na rozdanie (datum).
-  - **`bridge/validation.py`** — walidacja wyników (kompletność, kontrakt, rozgrywający, wist, lewy).
-- **`tests/`** — testy jednostkowe.
-- **`scripts/`** — skrypty demonstracyjne.
-- **`templates/`**, **`static/`** — szablony HTML, CSS, JS.
-- **`data/`** — zapisane turnieje (JSON w podkatalogach).
-- **`docs/`** — dokumentacja: **`API.md`** (opis endpointów API, przykłady JSON), uproszczenia rund, storage.
+- `app.py` - punkt wejscia Flask i konfiguracja srodowiska.
+- `bridge/api/` - routing stron i endpointow REST.
+- `bridge/models/` - modele domenowe (turniej, rundy, kontrakt, wyniki).
+- `bridge/services/` - logika generatora i agregacji wynikow.
+- `bridge/storage/` - trwalosc JSON i ustawienia.
+- `bridge/scoring.py` - liczenie punktow i IMP.
+- `bridge/validation.py` - walidacja danych wyniku.
+- `templates/`, `static/` - warstwa UI.
+- `tests/` - testy jednostkowe i API.
+- `docs/` - dodatkowa dokumentacja (w tym `API.md`).
