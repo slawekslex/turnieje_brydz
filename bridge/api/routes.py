@@ -153,18 +153,18 @@ def round_ranking_redirect(tour_id: str, round_id: int):
 
 @bp.route("/tournament/<tour_id>/result-sheets")
 def tournament_result_sheets_index(tour_id: str):
-    """Index page: list links to printable result sheet for each table."""
+    """Redirect to printable result sheet for table 1 by default."""
     tournament, path, err = _get_tournament_or_error(tour_id, json_response=False)
     if err:
         return err[0], err[1]
-    sheets = all_tables_sheet_data(tournament)
-    return render_template(
-        "result_sheets_index.html",
-        tour_id=tour_id,
-        tournament_name=tournament.name,
-        tournament_date=tournament.date.isoformat(),
-        sheets=sheets,
-    )
+    sheet_numbers = {sheet["table_number"] for sheet in all_tables_sheet_data(tournament)}
+    if 1 in sheet_numbers:
+        default_table = 1
+    elif sheet_numbers:
+        default_table = min(sheet_numbers)
+    else:
+        return render_template("404.html"), 404
+    return redirect(url_for("api.tournament_table_result_sheet", tour_id=tour_id, table_number=default_table))
 
 
 @bp.route("/tournament/<tour_id>/result-sheets/<int:table_number>")
@@ -183,6 +183,7 @@ def tournament_table_result_sheet(tour_id: str, table_number: int):
         tournament_date=data["tournament_date"],
         table_number=data["table_number"],
         rounds=data["rounds"],
+        all_table_numbers=sorted(sheet["table_number"] for sheet in all_tables_sheet_data(tournament)),
     )
 
 
