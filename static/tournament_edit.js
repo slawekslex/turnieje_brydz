@@ -188,14 +188,14 @@
     const teams = collectTeams();
     const numRounds = parseInt(numRoundsInput && numRoundsInput.value !== '' ? numRoundsInput.value : '0', 10);
     const dealsPerRound = parseInt(dealsPerRoundInput && dealsPerRoundInput.value !== '' ? dealsPerRoundInput.value : '2', 10);
-    const numberOfBoxes = parseInt(numberOfBoxesInput && numberOfBoxesInput.value !== '' ? numberOfBoxesInput.value : '1', 10);
+    const numberOfBoxes = parseInt(numberOfBoxesInput && numberOfBoxesInput.value !== '' ? numberOfBoxesInput.value : '16', 10);
     return {
       name: name,
       date: date,
       teams: teams,
       num_rounds: isNaN(numRounds) ? 0 : Math.max(0, numRounds),
       deals_per_round: isNaN(dealsPerRound) ? 2 : Math.max(0, dealsPerRound),
-      number_of_boxes: isNaN(numberOfBoxes) ? 1 : Math.max(1, numberOfBoxes)
+      number_of_boxes: isNaN(numberOfBoxes) ? 16 : Math.max(1, numberOfBoxes)
     };
   }
 
@@ -277,7 +277,7 @@
       }
       if (numRoundsInput) numRoundsInput.value = data.num_rounds != null ? String(data.num_rounds) : '3';
       if (dealsPerRoundInput) dealsPerRoundInput.value = data.deals_per_round != null ? String(data.deals_per_round) : '2';
-      if (numberOfBoxesInput) numberOfBoxesInput.value = data.number_of_boxes != null ? String(data.number_of_boxes) : '1';
+      if (numberOfBoxesInput) numberOfBoxesInput.value = data.number_of_boxes != null ? String(data.number_of_boxes) : '16';
       updateRoundsSummary();
       setInProgressLock(!!data.has_results);
       form.classList.remove('hidden');

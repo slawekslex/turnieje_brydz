@@ -527,7 +527,7 @@ def create_tournament():
         return jsonify({"ok": False, "errors": errors}), 400
     name, tournament_date, teams, cycles, rounds = data
 
-    number_of_boxes = max(1, int(body.get("number_of_boxes") or 1))
+    number_of_boxes = max(1, int(body.get("number_of_boxes") or 16))
     tournament = Tournament(
         name=name, date=tournament_date, teams=teams, rounds=rounds,
         number_of_boxes=number_of_boxes,

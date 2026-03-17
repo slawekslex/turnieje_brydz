@@ -6,7 +6,7 @@ Helpers for update: detect breaking changes and merge existing results.
 from datetime import date
 from typing import Any, List, Tuple
 
-from bridge.models.round_models import Round, Team, TeamMember
+from bridge.models.round_models import Round, Team, TeamMember, box_for_deal
 from bridge.models.tournament import Tournament
 from bridge.services.generator import (
     DEFAULT_DEALS_PER_ROUND,
@@ -18,6 +18,21 @@ from bridge.services.generator import (
 
 def _round_has_results(rnd: Round) -> bool:
     return bool(rnd.results_by_table_deal)
+
+
+def _update_unplayed_round_boxes(rounds: List[Round], number_of_boxes: int) -> None:
+    """
+    Reassign deal boxes only for unplayed rounds.
+
+    A round is treated as played once it has any saved result, so its deal boxes
+    are preserved to avoid changing already-entered scoring context.
+    """
+    boxes = max(1, number_of_boxes)
+    for rnd in rounds:
+        if _round_has_results(rnd):
+            continue
+        for deal in rnd.deals:
+            deal.box = box_for_deal(deal.id, boxes)
 
 
 def is_update_breaking(
@@ -95,6 +110,8 @@ def apply_non_breaking_update(
         )
         rounds = rounds + extra
     boxes = number_of_boxes if number_of_boxes is not None else existing.number_of_boxes
+    if boxes != existing.number_of_boxes:
+        _update_unplayed_round_boxes(rounds, boxes)
     return Tournament(
         name=name,
         date=tournament_date,
@@ -169,7 +186,7 @@ def parse_tournament_payload(body: dict) -> tuple[Any, list]:
 
     num_rounds_raw = body.get("num_rounds")
     deals_per_round = max(0, int(body.get("deals_per_round") or DEFAULT_DEALS_PER_ROUND))
-    number_of_boxes = max(1, int(body.get("number_of_boxes") or 1))
+    number_of_boxes = max(1, int(body.get("number_of_boxes") or 16))
     if num_rounds_raw is not None:
         num_rounds = max(0, int(num_rounds_raw))
         cycles = cycles_from_num_rounds_and_deals(len(teams), num_rounds, deals_per_round)
