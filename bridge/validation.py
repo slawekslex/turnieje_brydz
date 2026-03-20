@@ -30,14 +30,12 @@ def validate_result_fields(
 def validate_result_complete(
     contract: str, declarer: str, opening_lead: str, tricks_taken
 ) -> list[dict]:
-    """Require all fields to be filled. Returns list of { 'field', 'message' } for empty fields."""
+    """Require mandatory fields. Opening lead is optional."""
     errors = []
     if not (contract or "").strip():
         errors.append({"field": "contract", "message": "Wypełnij pole."})
     if not (declarer or "").strip().upper():
         errors.append({"field": "declarer", "message": "Wypełnij pole."})
-    if not (opening_lead or "").strip():
-        errors.append({"field": "opening_lead", "message": "Wypełnij pole."})
     if tricks_taken is None or (
         isinstance(tricks_taken, str) and tricks_taken.strip() == ""
     ):

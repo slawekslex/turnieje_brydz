@@ -45,6 +45,7 @@ from bridge.storage import (
 from bridge.validation import validate_result_complete, validate_result_fields
 
 bp = Blueprint("api", __name__, url_prefix="")
+DEFAULT_OPENING_LEAD = "—"
 
 
 def _data_dir() -> Path:
@@ -53,6 +54,15 @@ def _data_dir() -> Path:
 
 def _tournament_path(tour_id: str) -> Path | None:
     return get_tournament_data_path(_data_dir(), tour_id)
+
+
+def _safe_next_path(next_path: str | None) -> str:
+    if not next_path:
+        return url_for("api.index")
+    # Keep redirects local to this app.
+    if next_path.startswith("/") and not next_path.startswith("//"):
+        return next_path
+    return url_for("api.index")
 
 
 def _get_tournament_or_error(
@@ -109,6 +119,11 @@ def _get_round_or_error(
 @bp.route("/")
 def index():
     return render_template("index.html")
+
+
+@bp.route("/settings")
+def settings_page():
+    return render_template("settings.html", next_path=_safe_next_path(request.args.get("next")))
 
 
 @bp.route("/tournament/<tour_id>")
@@ -412,7 +427,7 @@ def validate_result():
     body = request.get_json(force=True, silent=True) or {}
     contract = (body.get("contract") or "").strip()
     declarer = (body.get("declarer") or "").strip().upper()
-    opening_lead = (body.get("opening_lead") or "").strip()
+    opening_lead = (body.get("opening_lead") or "").strip() or DEFAULT_OPENING_LEAD
     vulnerability = (body.get("vulnerability") or "").strip() or "None"
     tricks_taken = _parse_tricks(body.get("tricks_taken"))
 
@@ -456,7 +471,7 @@ def save_round_results(tour_id: str):
         deal_id = int(deal_id)
         contract = (item.get("contract") or "").strip()
         declarer = (item.get("declarer") or "").strip().upper()
-        opening_lead = (item.get("opening_lead") or "").strip()
+        opening_lead = (item.get("opening_lead") or "").strip() or DEFAULT_OPENING_LEAD
         tricks_taken = _parse_tricks(item.get("tricks_taken"))
 
         errs = validate_result_complete(contract, declarer, opening_lead, tricks_taken)

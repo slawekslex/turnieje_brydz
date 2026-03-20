@@ -1,13 +1,12 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pełny harmonogram – {{ tournament_name }} – Turnieje brydżowe</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{% extends "base.html" %}
+
+{% block title %}Pełny harmonogram - {{ tournament_name }} - Turnieje brydżowe{% endblock %}
+
+{% block body_class %} schedule-page{% endblock %}
+
+{% block settings_link %}{% endblock %}
+
+{% block head_extra %}
   <style>
     .schedule-page .schedule-intro { margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.95rem; }
     .schedule-round { margin-bottom: 2rem; break-inside: avoid; }
@@ -37,74 +36,75 @@
       .schedule-print-date { font-size: 10pt; color: #555; margin-bottom: 1rem; }
     }
   </style>
-</head>
-<body class="app-body schedule-page">
-  <div class="container">
-    <nav class="breadcrumb no-print" aria-label="Nawigacja">
-      <ol class="breadcrumb-list">
-        <li><a href="{{ url_for('api.index') }}">Lista turniejów</a></li>
-        <li><a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}">{{ tournament_name }}</a></li>
-        <li aria-current="page">Harmonogram</li>
-      </ol>
-    </nav>
-    <header>
-      <h1 class="schedule-print-title">{{ tournament_name }}</h1>
-      <p class="schedule-print-date muted" aria-hidden="true">{{ tournament_date }}</p>
-      <div class="header-actions no-print">
-        <button type="button" id="btn-print-schedule" class="btn btn-primary btn-sm">Drukuj</button>
-        <a href="{{ url_for('api.tournament_result_sheets_index', tour_id=tour_id) }}" class="btn btn-secondary btn-sm">Arkusze wyników</a>
-        <a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}" class="btn btn-secondary btn-sm">← Rundy</a>
-      </div>
-    </header>
+{% endblock %}
 
-    <p class="schedule-intro no-print">Pełny harmonogram: dla każdej rundy i każdego stołu – drużyna NS (północ–południe) i EW (wschód–zachód).</p>
+{% block page_content %}
+  <nav class="breadcrumb no-print" aria-label="Nawigacja">
+    <ol class="breadcrumb-list">
+      <li><a href="{{ url_for('api.index') }}">Lista turniejów</a></li>
+      <li><a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}">{{ tournament_name }}</a></li>
+      <li aria-current="page">Harmonogram</li>
+    </ol>
+  </nav>
+  <header>
+    <h1 class="schedule-print-title">{{ tournament_name }}</h1>
+    <p class="schedule-print-date muted" aria-hidden="true">{{ tournament_date }}</p>
+    <div class="header-actions no-print">
+      <button type="button" id="btn-print-schedule" class="btn btn-primary btn-sm">Drukuj</button>
+      <a href="{{ url_for('api.tournament_result_sheets_index', tour_id=tour_id) }}" class="btn btn-secondary btn-sm">Arkusze wyników</a>
+      <a href="{{ url_for('api.tournament_rounds_page', tour_id=tour_id) }}" class="btn btn-secondary btn-sm">← Rundy</a>
+    </div>
+  </header>
 
-    <section class="schedule-content">
-      {% for round in schedule %}
-      <div class="schedule-round">
-        <h2>Runda {{ round.round_number }}</h2>
-        <table class="schedule-table" role="grid">
-          <thead>
-            <tr>
-              <th class="col-table" scope="col">Stół</th>
-              <th class="col-ns" scope="col">NS (północ–południe)</th>
-              <th class="col-ew" scope="col">EW (wschód–zachód)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for t in round.tables %}
-            <tr>
-              <td class="col-table">{{ t.table_number }}</td>
-              <td class="col-ns">
-                <span class="team-name">{{ t.ns_name }}</span>
-                {% if t.ns_players %}<div class="team-players">{{ t.ns_players }}</div>{% endif %}
-              </td>
-              <td class="col-ew">
-                <span class="team-name">{{ t.ew_name }}</span>
-                {% if t.ew_players %}<div class="team-players">{{ t.ew_players }}</div>{% endif %}
-              </td>
-            </tr>
-            {% endfor %}
-            {% for bye in round.byes %}
-            <tr class="schedule-row-bye">
-              <td class="col-table">—</td>
-              <td class="col-ns">
-                <span class="team-name">{{ bye.team_name }}</span>
-                {% if bye.team_players %}<div class="team-players">{{ bye.team_players }}</div>{% endif %}
-              </td>
-              <td class="col-ew">BYE</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endfor %}
-    </section>
-  </div>
+  <p class="schedule-intro no-print">Pełny harmonogram: dla każdej rundy i każdego stołu – drużyna NS (północ–południe) i EW (wschód–zachód).</p>
+
+  <section class="schedule-content">
+    {% for round in schedule %}
+    <div class="schedule-round">
+      <h2>Runda {{ round.round_number }}</h2>
+      <table class="schedule-table" role="grid">
+        <thead>
+          <tr>
+            <th class="col-table" scope="col">Stół</th>
+            <th class="col-ns" scope="col">NS (północ–południe)</th>
+            <th class="col-ew" scope="col">EW (wschód–zachód)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in round.tables %}
+          <tr>
+            <td class="col-table">{{ t.table_number }}</td>
+            <td class="col-ns">
+              <span class="team-name">{{ t.ns_name }}</span>
+              {% if t.ns_players %}<div class="team-players">{{ t.ns_players }}</div>{% endif %}
+            </td>
+            <td class="col-ew">
+              <span class="team-name">{{ t.ew_name }}</span>
+              {% if t.ew_players %}<div class="team-players">{{ t.ew_players }}</div>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          {% for bye in round.byes %}
+          <tr class="schedule-row-bye">
+            <td class="col-table">—</td>
+            <td class="col-ns">
+              <span class="team-name">{{ bye.team_name }}</span>
+              {% if bye.team_players %}<div class="team-players">{{ bye.team_players }}</div>{% endif %}
+            </td>
+            <td class="col-ew">BYE</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  </section>
+{% endblock %}
+
+{% block scripts %}
   <script>
     document.getElementById('btn-print-schedule').addEventListener('click', function () {
       window.print();
     });
   </script>
-</body>
-</html>
+{% endblock %}

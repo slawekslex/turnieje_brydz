@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Ustawienia - Turnieje brydżowe{% endblock %}
+
+{% block container_class %} settings-page{% endblock %}
+
+{% block settings_link %}{% endblock %}
+
+{% block page_content %}
+    <nav class="breadcrumb" aria-label="Nawigacja">
+      <ol class="breadcrumb-list">
+        <li><a href="{{ next_path }}">Powrot</a></li>
+        <li aria-current="page">Ustawienia</li>
+      </ol>
+    </nav>
+    <header>
+      <h1>Ustawienia</h1>
+      <div class="header-actions">
+        <a href="{{ next_path }}" class="btn btn-secondary">Zamknij</a>
+      </div>
+    </header>
+
+    <section class="card">
+      <h2>Aplikacja</h2>
+      <div class="settings-row">
+        <span class="settings-label">Tryb debug</span>
+        <label class="settings-toggle-wrap">
+          <input type="checkbox" id="settings-debug-mode" class="settings-toggle-input">
+          <span class="settings-toggle-track"></span>
+        </label>
+      </div>
+      <p class="hint">Ustawienie jest zapisywane w pliku <code>data/settings.json</code>.</p>
+      <p id="settings-save-status" class="settings-status" aria-live="polite"></p>
+    </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='settings_store.js') }}"></script>
+  <script src="{{ url_for('static', filename='settings_page.js') }}"></script>
+{% endblock %}

@@ -31,11 +31,17 @@
   let roundsHasUnsavedChanges = false;
   let roundViewMode = 'edit'; // 'edit' | 'view'
   let viewTab = 'wyniki'; // 'wyniki' | 'ranking' | 'head2head' (when in view mode)
+  const DEFAULT_OPENING_LEAD = '—';
 
   function escapeHtml(s) {
     const div = document.createElement('div');
     div.textContent = s;
     return div.innerHTML;
+  }
+
+  function normalizeOpeningLead(lead) {
+    var value = (lead || '').toString().trim();
+    return value === '' ? DEFAULT_OPENING_LEAD : value;
   }
 
   /** Build HTML for the shared box-info block: box number (blue), dealer, NS/EW vul. */
@@ -99,9 +105,8 @@
       var res = results[String(deals[i].id)] || {};
       var contract = (res.contract || '').toString().trim();
       var declarer = (res.declarer || '').toString().trim();
-      var lead = (res.opening_lead || '').toString().trim();
       var tricks = res.tricks_taken;
-      if (contract === '' || declarer === '' || lead === '') return false;
+      if (contract === '' || declarer === '') return false;
       var t = Number(tricks);
       if (tricks == null || tricks === '' || isNaN(t) || t < 0 || t > 13) return false;
       if (res.ns_score == null && res.ew_score == null) return false;
@@ -523,7 +528,7 @@
       setDealRowStateFromValidation(rowEl, 'empty', []);
       return;
     }
-    var payload = { contract: contract, declarer: declarer, opening_lead: lead, tricks_taken: tricksRaw === '' ? null : tricksRaw, vulnerability: vulnerability };
+    var payload = { contract: contract, declarer: declarer, opening_lead: normalizeOpeningLead(lead), tricks_taken: tricksRaw === '' ? null : tricksRaw, vulnerability: vulnerability };
     fetch('/api/validate-result', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -543,7 +548,7 @@
             if (t && t.results) {
               var tricksVal = tricksRaw === '' ? null : parseInt(tricksRaw, 10);
               if (tricksVal !== null && isNaN(tricksVal)) tricksVal = null;
-              t.results[dealId] = { contract: contract, declarer: declarer, opening_lead: lead, tricks_taken: tricksVal, ns_score: data.ns_score != null ? data.ns_score : 0, ew_score: data.ew_score != null ? data.ew_score : 0 };
+              t.results[dealId] = { contract: contract, declarer: declarer, opening_lead: normalizeOpeningLead(lead), tricks_taken: tricksVal, ns_score: data.ns_score != null ? data.ns_score : 0, ew_score: data.ew_score != null ? data.ew_score : 0 };
               updateTableCardCheckmarks();
             }
           }
@@ -566,7 +571,7 @@
     var hasScores = res.ns_score != null || res.ew_score != null;
     if (contract === '' && declarer === '' && lead === '' && (tricks == null || tricks === '')) return 'empty';
     var t = Number(tricks);
-    if (contract !== '' && declarer !== '' && lead !== '' && !isNaN(t) && t >= 0 && t <= 13 && hasScores) return true;
+    if (contract !== '' && declarer !== '' && !isNaN(t) && t >= 0 && t <= 13 && hasScores) return true;
     return null;
   }
 
@@ -595,7 +600,7 @@
         deal_id: dealId,
         contract: contract,
         declarer: declarer,
-        opening_lead: lead,
+        opening_lead: normalizeOpeningLead(lead),
         tricks_taken: tricks
       });
       rowMap.push({ row: row, contractEl: row.querySelector('.deal-contract-error'), declarerEl: row.querySelector('.deal-declarer-error'), leadEl: row.querySelector('.deal-lead-error'), tricksEl: row.querySelector('.deal-tricks-error') });
@@ -710,13 +715,14 @@
     if (btnAutoRound) btnAutoRound.style.display = debugMode ? '' : 'none';
   }
   setAutoButtonVisibility(false);
-  fetch('/api/settings')
-    .then(function (res) { return res.json(); })
-    .then(function (data) { setAutoButtonVisibility(!!data.debug_mode); })
-    .catch(function () { setAutoButtonVisibility(false); });
-  document.addEventListener('debugModeChanged', function (e) {
-    setAutoButtonVisibility(!!(e.detail && e.detail.debug_mode));
-  });
+  if (window.BridgeSettings) {
+    window.BridgeSettings.ready()
+      .then(function (data) { setAutoButtonVisibility(!!data.debug_mode); })
+      .catch(function () { setAutoButtonVisibility(false); });
+    window.BridgeSettings.subscribe(function (settings) {
+      setAutoButtonVisibility(!!settings.debug_mode);
+    });
+  }
 
   function randomChoice(arr) {
     return arr[Math.floor(Math.random() * arr.length)];

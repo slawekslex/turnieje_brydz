@@ -8,6 +8,7 @@ No index.json: we walk the data directory and read id/name/date/archived from ea
 import json
 import re
 import shutil
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -149,6 +150,9 @@ def load_tournament_cycles(path: Path | str) -> list:
 
 
 DEFAULT_SETTINGS = {"debug_mode": False}
+_settings_lock = threading.RLock()
+_settings_runtime_cache: dict[str, dict] = {}
+_settings_mtime_cache: dict[str, int | None] = {}
 
 
 def _settings_path(data_dir: Path) -> Path:
@@ -156,24 +160,50 @@ def _settings_path(data_dir: Path) -> Path:
 
 
 def load_settings(data_dir: Path) -> dict:
-    """Load app settings from data/settings.json. Returns defaults if missing."""
+    """Load app settings from data/settings.json with runtime cache sync."""
     ensure_data_dir(data_dir)
     path = _settings_path(data_dir)
-    if not path.exists():
-        return dict(DEFAULT_SETTINGS)
-    try:
-        with path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        return {**DEFAULT_SETTINGS, **data}
-    except (json.JSONDecodeError, OSError):
-        return dict(DEFAULT_SETTINGS)
+    cache_key = str(path.resolve())
+    with _settings_lock:
+        if not path.exists():
+            defaults = dict(DEFAULT_SETTINGS)
+            _settings_runtime_cache[cache_key] = defaults
+            _settings_mtime_cache[cache_key] = None
+            return dict(defaults)
+        try:
+            current_mtime = path.stat().st_mtime_ns
+        except OSError:
+            defaults = dict(DEFAULT_SETTINGS)
+            _settings_runtime_cache[cache_key] = defaults
+            _settings_mtime_cache[cache_key] = None
+            return dict(defaults)
+        cached_mtime = _settings_mtime_cache.get(cache_key)
+        if cache_key in _settings_runtime_cache and cached_mtime == current_mtime:
+            return dict(_settings_runtime_cache[cache_key])
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+            merged = {**DEFAULT_SETTINGS, **data}
+        except (json.JSONDecodeError, OSError):
+            merged = dict(DEFAULT_SETTINGS)
+        _settings_runtime_cache[cache_key] = merged
+        _settings_mtime_cache[cache_key] = current_mtime
+        return dict(merged)
 
 
 def save_settings(data_dir: Path, settings: dict) -> None:
-    """Save app settings to data/settings.json. Merges with existing, then writes."""
+    """Save app settings, and refresh runtime cache atomically."""
     ensure_data_dir(data_dir)
-    current = load_settings(data_dir)
-    current.update(settings)
     path = _settings_path(data_dir)
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(current, f, indent=2, ensure_ascii=False)
+    cache_key = str(path.resolve())
+    with _settings_lock:
+        current = load_settings(data_dir)
+        current.update(settings)
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(current, f, indent=2, ensure_ascii=False)
+        try:
+            mtime = path.stat().st_mtime_ns
+        except OSError:
+            mtime = None
+        _settings_runtime_cache[cache_key] = dict(current)
+        _settings_mtime_cache[cache_key] = mtime

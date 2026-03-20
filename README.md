@@ -93,7 +93,7 @@ Skopiuj `.env.example` do `.env` i ustaw wartosci. Aplikacja laduje `.env` przy 
 
 ### Ustawienia i debug mode
 
-- **Modal ustawien** na stronach UI.
+- **Strona ustawien** (`/settings`) dostepna z ikony kola zebatego.
 - **`debug_mode`** (`/api/settings`) wlacza przyciski pomocnicze:
   - **Auto** w formularzu turnieju (uzupelnianie testowych druzyn),
   - **Auto** w rundzie (losowe kontrakty i wyniki testowe).

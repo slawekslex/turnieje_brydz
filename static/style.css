@@ -1508,6 +1508,7 @@ a.btn {
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
   transition: background var(--transition), color var(--transition);
+  text-decoration: none;
 }
 
 .btn-settings-gear:hover {
@@ -1645,4 +1646,18 @@ a.btn {
 
 .settings-toggle-input:checked + .settings-toggle-track::after {
   transform: translateX(1.25rem);
+}
+
+.settings-status {
+  min-height: 1.2rem;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.settings-status--ok {
+  color: var(--success);
+}
+
+.settings-status--error {
+  color: var(--danger);
 }

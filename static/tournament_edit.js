@@ -148,14 +148,14 @@
     if (btnAutoTeams) btnAutoTeams.style.display = debugMode ? '' : 'none';
   }
   setAutoButtonVisibility(false);
-
-  fetch('/api/settings')
-    .then(function (res) { return res.json(); })
-    .then(function (data) { setAutoButtonVisibility(!!data.debug_mode); })
-    .catch(function () { setAutoButtonVisibility(false); });
-  document.addEventListener('debugModeChanged', function (e) {
-    setAutoButtonVisibility(!!(e.detail && e.detail.debug_mode));
-  });
+  if (window.BridgeSettings) {
+    window.BridgeSettings.ready()
+      .then(function (data) { setAutoButtonVisibility(!!data.debug_mode); })
+      .catch(function () { setAutoButtonVisibility(false); });
+    window.BridgeSettings.subscribe(function (settings) {
+      setAutoButtonVisibility(!!settings.debug_mode);
+    });
+  }
 
   btnAutoTeams.addEventListener('click', function (e) {
     e.stopPropagation();

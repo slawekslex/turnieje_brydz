@@ -4,6 +4,9 @@ Covers: list tournaments, create, get, archive, round-results, ranking.
 Uses the shared client fixture from tests/conftest.py (DATA_DIR = tests/tmp_api_tournaments).
 """
 
+import json
+from pathlib import Path
+
 import pytest
 
 
@@ -12,6 +15,36 @@ def test_list_tournaments_empty(client):
     assert r.status_code == 200
     data = r.get_json()
     assert data == []
+
+
+def test_get_settings_defaults(client):
+    r = client.get("/api/settings")
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data["debug_mode"] is False
+
+
+def test_patch_settings_persists_to_file(client):
+    r = client.patch("/api/settings", json={"debug_mode": True})
+    assert r.status_code == 200
+    assert r.get_json()["debug_mode"] is True
+
+    r2 = client.get("/api/settings")
+    assert r2.status_code == 200
+    assert r2.get_json()["debug_mode"] is True
+
+    import app as app_module
+
+    settings_path = Path(app_module.app.config["DATA_DIR"]) / "settings.json"
+    assert settings_path.exists()
+    data = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert data["debug_mode"] is True
+
+
+def test_settings_page_available(client):
+    r = client.get("/settings")
+    assert r.status_code == 200
+    assert "Ustawienia".encode("utf-8") in r.data
 
 
 def test_create_tournament(client):
@@ -209,6 +242,44 @@ def test_save_round_results(client):
     assert save_data.get("ok") is True
     assert save_data.get("saved") == len(results)
     assert save_data.get("total") == len(results)
+
+
+def test_save_round_results_allows_empty_opening_lead_and_stores_default(client):
+    payload = {
+        "name": "Results Optional Lead",
+        "date": "2025-11-02",
+        "teams": [
+            {"name": "NS", "member1": "N1", "member2": "N2"},
+            {"name": "EW", "member1": "E1", "member2": "E2"},
+        ],
+        "num_rounds": 1,
+        "deals_per_round": 1,
+    }
+    cr = client.post("/api/tournaments", json=payload)
+    tour_id = cr.get_json()["id"]
+    rounds_r = client.get(f"/api/tournaments/{tour_id}/rounds")
+    rnd = rounds_r.get_json()["rounds"][0]
+    result = {
+        "table_number": rnd["tables"][0]["table_number"],
+        "deal_id": rnd["deals"][0]["id"],
+        "contract": "1NT",
+        "declarer": "N",
+        "opening_lead": "",
+        "tricks_taken": 7,
+    }
+    save_r = client.post(
+        f"/api/tournaments/{tour_id}/round-results",
+        json={"round_id": rnd["round_id"], "results": [result]},
+    )
+    assert save_r.status_code == 200
+    save_data = save_r.get_json()
+    assert save_data.get("saved") == 1
+    assert save_data.get("results")[0].get("ok") is True
+
+    rounds_after = client.get(f"/api/tournaments/{tour_id}/rounds").get_json()
+    deal_id_str = str(rnd["deals"][0]["id"])
+    saved = rounds_after["rounds"][0]["tables"][0]["results"][deal_id_str]
+    assert saved["opening_lead"] == "—"
 
 
 def test_round_ranking_after_save(client):
